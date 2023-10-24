@@ -1,0 +1,755 @@
+1.Unable to unmount share disk
+  <Case>
+    $ sudo umount /mnt
+    [sudo] password for ansible:
+    umount.nfs: /mnt: device is busy
+  <Solution>
+    $ fuser -muv /mnt
+                         USER        PID ACCESS COMMAND
+    /mnt:                root     kernel mount (root)/mnt
+                         ansible    4338 ..c.. (ansible)bash ★
+    $ sudo kill -9 4338
+    $ fuser -muv /mnt
+                         USER        PID ACCESS COMMAND
+    /mnt:                root     kernel mount (root)/mnt
+    $ sudo umount /mnt/
+    $ df -h
+
+
+2.The screen turns white(brighter) and does not display properly
+  Reference: https://qiita.com/oozzZZZZ/items/5a48f1b89ed241a587b5
+
+  <case>
+    Can connect via ssh and operate (the server function is alright)
+    It's not HDMI cable and monitor side issue
+    Can see display properly on TeamViewer
+    →Graphic board and Driver seem to be the cause
+
+    And can not install driver with "ubuntu-drivers autoinstall" command
+
+    $ nvidia-smi
+    NVIDIA-SMI has failed because it couldn't communicate with the NVIDIA driver. 
+    Make sure that the latest NVIDIA driver is installed and running.
+    $ sudo ubuntu-drivers autoinstall
+    [sudo] password for ansible: 
+    Traceback (most recent call last):
+      File "/usr/bin/ubuntu-drivers", line 513, in <module>
+        greet()
+      File "/usr/lib/python3/dist-packages/click/core.py", line 1128, in __call__
+        return self.main(*args, **kwargs)
+      File "/usr/lib/python3/dist-packages/click/core.py", line 1053, in main
+        rv = self.invoke(ctx)
+      File "/usr/lib/python3/dist-packages/click/core.py", line 1659, in invoke
+        return _process_result(sub_ctx.command.invoke(sub_ctx))
+      File "/usr/lib/python3/dist-packages/click/core.py", line 1395, in invoke
+        return ctx.invoke(self.callback, **ctx.params)
+      File "/usr/lib/python3/dist-packages/click/core.py", line 754, in invoke
+        return __callback(*args, **kwargs)
+      File "/usr/lib/python3/dist-packages/click/decorators.py", line 84, in new_func
+        return ctx.invoke(f, obj, *args, **kwargs)
+      File "/usr/lib/python3/dist-packages/click/core.py", line 754, in invoke
+        return __callback(*args, **kwargs)
+      File "/usr/bin/ubuntu-drivers", line 432, in autoinstall
+        command_install(config)
+      File "/usr/bin/ubuntu-drivers", line 187, in command_install
+        UbuntuDrivers.detect.nvidia_desktop_pre_installation_hook(to_install)
+      File "/usr/lib/python3/dist-packages/UbuntuDrivers/detect.py", line 839, in nvidia_desktop_pre_installation_hook
+        with_nvidia_kms = version >= 470
+    UnboundLocalError: local variable 'version' referenced before assignment ★
+  <Solution>
+    $ sudo apt-get --purge remove nvidia-*
+    $ sudo apt-get --purge remove cuda-*
+    $ ubuntu-drivers devices
+    →Check "recommended" driver but do not install "nvidia-driver-XXX-open" (open)
+      == /sys/devices/pci0000:00/0000:00:03.1/0000:0b:00.0 ==
+      modalias : pci:v000010DEd00001F82sv00001043sd00008771bc03sc00i00
+      vendor   : NVIDIA Corporation
+      model    : TU117 [GeForce GTX 1650]
+      driver   : nvidia-driver-525-server - distro non-free
+      driver   : nvidia-driver-525 - distro non-free
+      driver   : nvidia-driver-510 - distro non-free
+      driver   : nvidia-driver-530 - distro non-free
+      driver   : nvidia-driver-525-open - distro non-free
+      driver   : nvidia-driver-450-server - distro non-free
+      driver   : nvidia-driver-515 - distro non-free
+      driver   : nvidia-driver-470 - distro non-free
+      driver   : nvidia-driver-470-server - distro non-free
+      driver   : nvidia-driver-515-server - distro non-free
+      driver   : nvidia-driver-515-open - distro non-free
+      driver   : nvidia-driver-418-server - distro non-free
+      driver   : nvidia-driver-530-open - distro non-free recommended ★
+      driver   : xserver-xorg-video-nouveau - distro free builtin
+    $ sudo apt install nvidia-driver-530
+    $ nvcc -V
+    →If command not found, install it with below command
+    $ sudo apt install nvidia-cuda-toolkit
+    $ sudo dpkg --configure -a
+    →Check if the output was shown
+    nvcc: NVIDIA (R) Cuda compiler driver
+    Copyright (c) 2005-2021 NVIDIA Corporation
+    Built on Thu_Nov_18_09:45:30_PST_2021
+    Cuda compilation tools, release 11.5, V11.5.119
+    Build cuda_11.5.r11.5/compiler.30672275_0
+    $ nvidia-smi 
+    →If it has any error, reboot once
+      $ sudo reboot
+    $ nvidia-smi
+    →You should get the output and the issue should be resolved
+    Fri Jun 23 17:39:19 2023       
+    +---------------------------------------------------------------------------------------+
+    | NVIDIA-SMI 530.41.03              Driver Version: 530.41.03    CUDA Version: 12.1     |
+    |-----------------------------------------+----------------------+----------------------+
+    | GPU  Name                  Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+    | Fan  Temp  Perf            Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+    |                                         |                      |               MIG M. |
+    |=========================================+======================+======================|
+    |   0  NVIDIA GeForce GTX 1650         Off| 00000000:0B:00.0  On |                  N/A |
+    | 24%   30C    P8               N/A /  75W|    190MiB /  4096MiB |      2%      Default |
+    |                                         |                      |                  N/A |
+    +-----------------------------------------+----------------------+----------------------+
+                                                                                             
+    +---------------------------------------------------------------------------------------+
+    | Processes:                                                                            |
+    |  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+    |        ID   ID                                                             Usage      |
+    |=======================================================================================|
+    |    0   N/A  N/A      1928      G   /usr/lib/xorg/Xorg                           64MiB |
+    |    0   N/A  N/A      2092      G   /usr/bin/gnome-shell                        118MiB |
+    |    0   N/A  N/A      2138      G   /opt/teamviewer/tv_bin/TeamViewer             4MiB |
+    +---------------------------------------------------------------------------------------+
+
+
+3.Unable to install kubeadm
+  Unable to install kubeadm through installation instruction of Kubernetes to Master Server
+
+  Reference: https://kubernetes.io/ja/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#%E5%BF%85%E9%A0%88%E3%83%9D%E3%83%BC%E3%83%88%E3%81%AE%E7%A2%BA%E8%AA%8D
+             https://computingforgeeks.com/deploy-kubernetes-cluster-on-almalinux-with-kubeadm/
+  
+  
+  <Case>
+    # dnf install -y kubelet kubeadm kubectl --disableexcludes=k                                     ubernetes
+    Kubernetes                                      368  B/s | 454  B     00:01
+    Kubernetes                                      6.7 kB/s | 975  B     00:00
+    Kubernetes               [   ===              ] ---  B/s |   0  B     --:-- ETA
+
+    Kubernetes                                                                           409  B/s | 454  B     00:01
+    Error: Failed to download metadata for repo 'kubernetes': repomd.xml GPG signature verification error: Bad GPG signature
+  <Solution>
+    Change "gpgkey" value 
+    $ # cat /etc/yum.repos.d/kubernetes.repo
+    [kubernetes]
+    name=Kubernetes
+    baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-$basearch
+    enabled=1
+    gpgcheck=1
+    repo_gpgcheck=1
+    gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    exclude=kube*
+
+4.Unable to run ansible-playbook command with "Missing sudo password"
+  <Case>
+    The message "Missing sudo password" was displayed when running playbook
+      fatal: [dev-kvm001p]: FAILED! => {
+          "msg": "Missing sudo password"
+      }
+
+  <Solution>
+    I set the sudo password "the paassword of root"
+    the password for "ansible" (user to run playbook) was OK
+
+    The content of hosts.ini
+      ansible_become_method=sudo
+      root_user=root
+      ansible_become_password="{{ ansible_password }}" # I changed the var
+
+5.Unable to find "ansible.posix.firewalld"
+  <Case>
+    When running Playbook including "ansible.posix.firewalld", Ansible can't find it
+
+    -----
+    - name: Add firewall port
+      ansible.posix.firewalld: # This point
+        port: "{{ item }}"
+        permanent: true
+        zone: public
+        immediate: true
+        state: enabled
+      with_items: "{{ firewall_ports }}"
+      become: true
+    -----
+    TASK [firewall_setup : include_tasks] ********************************************************************************
+    task path: /home/ansible/playbooks/roles/firewall_setup/tasks/main.yml:2
+    redirecting (type: modules) ansible.builtin.firewalld to ansible.posix.firewalld
+    ERROR! couldn't resolve module/action 'firewalld'. This often indicates a misspelling, missing collection, or incorrect module path.
+
+    The error appears to be in '/home/ansible/playbooks/roles/firewall_setup/tasks/firewall_setup.yml': line 13, column 3, but may
+    be elsewhere in the file depending on the exact syntax problem.
+
+    The offending line appears to be:
+
+
+    - name: Add firewall port
+      ^ here
+    -----
+    [ansible@dev-ansb001v playbooks]$ ansible --version
+    ansible [core 2.15.0]
+      config file = /home/ansible/playbooks/ansible.cfg
+      configured module search path = ['/home/ansible/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+      ansible python module location = /usr/local/lib/python3.9/site-packages/ansible
+      ansible collection location = /home/ansible/.ansible/collections:/usr/share/ansible/collections
+      executable location = /usr/local/bin/ansible
+      python version = 3.9.16 (main, Dec  8 2022, 00:00:00) [GCC 11.3.1 20221121 (Red Hat 11.3.1-4)] (/usr/bin/python3)
+      jinja version = 3.1.2
+      libyaml = True
+    -----
+
+  <Solution>
+    Run "ansible-galaxy collection install ansible.posix" on controller node.
+    Reference: https://stackoverflow.com/questions/71222581/ansible-firewalld-module-not-found
+
+    [ansible@dev-ansb001v ansible]$ ansible-galaxy collection install ansible.posix
+    Starting galaxy collection install process
+    Process install dependency map
+    Starting collection install process
+    Downloading https://galaxy.ansible.com/download/ansible-posix-1.5.4.tar.gz to /home/ansible/.ansible/tmp/ansible-local-27129v1mb1q3d/tmpx4bc86gt/ansible-posix-1.5.4-of5zqbiz
+    Installing 'ansible.posix:1.5.4' to '/home/ansible/.ansible/collections/ansible_collections/ansible/posix'
+    ansible.posix:1.5.4 was installed successfully
+
+6.Unable to run kubectl command
+  <Case>
+    When running command "kubectl get nodes", display below errors.
+
+    -----
+[ansible@dev-mas001v .kube]$ kubectl get nodes
+E0806 17:49:05.510286   82927 memcache.go:265] couldn't get current server API group list: Get "http://localhost:8080/api?timeout=32s": dial tcp 127.0.0.1:8080: connect: connection refused
+E0806 17:49:05.513616   82927 memcache.go:265] couldn't get current server API group list: Get "http://localhost:8080/api?timeout=32s": dial tcp 127.0.0.1:8080: connect: connection refused
+E0806 17:49:05.516645   82927 memcache.go:265] couldn't get current server API group list: Get "http://localhost:8080/api?timeout=32s": dial tcp 127.0.0.1:8080: connect: connection refused
+E0806 17:49:05.519665   82927 memcache.go:265] couldn't get current server API group list: Get "http://localhost:8080/api?timeout=32s": dial tcp 127.0.0.1:8080: connect: connection refused
+E0806 17:49:05.522654   82927 memcache.go:265] couldn't get current server API group list: Get "http://localhost:8080/api?timeout=32s": dial tcp 127.0.0.1:8080: connect: connection refused
+The connection to the server localhost:8080 was refused - did you specify the right host or port?
+    -----
+
+  <Solution>
+    Check if /etc/kubernetes/admin.conf is copied. (and environment variable "KUBECONFIG=$HOME/.kube/config" is set)
+
+    $ mkdir -p $HOME/.kube
+    $ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    $ sudo chown $(id -u):$(id -u) $HOME/.kube/config
+    $ ls -l $HOME/.kube/config
+    -rw------- 1 ansible ansible 5637 Jun 27 17:23 /home/ansible/.kube/config
+    $ kubectl get nodes
+    NAME          STATUS     ROLES           AGE   VERSION
+    dev-mas001v   NotReady   control-plane   14m   v1.27.3
+
+
+Unable to run the command
+
+https://github.com/kubernetes/kubeadm/blob/main/docs/ha-considerations.md#kube-vip
+
+
+[ansible@dev-mas001v ~]$ export VIP=192.168.10.22
+[ansible@dev-mas001v ~]$ export INTERFACE=enp1s0
+[ansible@dev-mas001v ~]$ KVVERSION=$(curl -sL https://api.github.com/repos/kube-vip/kube-vip/releases | jq -r ".[0].name")
+ctr: failed to dial "/run/containerd/containerd.sock": connection error: desc = "transport: error while dialing: dial unix /run/containerd/containerd.sock: connect: permission denied"
+[ansible@dev-mas001v ~]$ sudo ctr images pull ghcr.io/kube-vip/kube-vip:$KVVERSION
+[sudo] password for ansible:
+ghcr.io/kube-vip/kube-vip:v0.6.0:                                                 resolved       |++++++++++++++++++++++++++++++++++++++|
+index-sha256:defef5b817487ca1f30123df5cfd17bad996d0b5f885e3004541810986d132d2:    done           |++++++++++++++++++++++++++++++++++++++|
+manifest-sha256:7211f940047b2292dc0054fddffbb4875ac6a4fc6ec62160f6f75aa462f0a257: done           |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:eb4b78f9055a3020bbd47ec6d183d7262e4bfd1ced2f213d6689d42cd8767340:    done           |++++++++++++++++++++++++++++++++++++++|
+config-sha256:8c4c99e346ae72adaa649405893fe561c1ff5c7dfcee072aff47c865ceb4fc17:   done           |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:5b2d64022462ddd3078e7e547df18ce47b5d1d37488859b906e551400f027606:    done           |++++++++++++++++++++++++++++++++++++++|
+elapsed: 2.7 s                                                                    total:  12.1 M (4.5 MiB/s)
+unpacking linux/amd64 sha256:defef5b817487ca1f30123df5cfd17bad996d0b5f885e3004541810986d132d2...
+done: 346.151186ms
+[ansible@dev-mas001v ~]$ sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:$KVVERSION vip /kube
+-vip manifest pod --interface $INTERFACE --vip $VIP --controlplane --arp --leaderElection | tee /etc
+/kubernetes/manifests/kube-vip.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: kube-vip
+  namespace: kube-system
+spec:
+  containers:
+  - args:
+    - manager
+    env:
+    - name: vip_arp
+      value: "true"
+    - name: port
+      value: "6443"
+    - name: vip_interface
+      value: enp1s0
+    - name: vip_cidr
+      value: "32"
+    - name: cp_enable
+      value: "true"
+    - name: cp_namespace
+      value: kube-system
+    - name: vip_ddns
+      value: "false"
+    - name: vip_leaderelection
+      value: "true"
+    - name: vip_leaseduration
+      value: "5"
+    - name: vip_renewdeadline
+      value: "3"
+    - name: vip_retryperiod
+      value: "1"
+    - name: vip_address
+      value: 192.168.10.22
+    - name: prometheus_server
+      value: :2112
+    image: ghcr.io/kube-vip/kube-vip:v0.6.0
+    imagePullPolicy: Always
+    name: kube-vip
+    resources: {}
+    securityContext:
+      capabilities:
+        add:
+        - NET_ADMIN
+        - NET_RAW
+    volumeMounts:
+    - mountPath: /etc/kubernetes/admin.conf
+      name: kubeconfig
+  hostAliases:
+  - hostnames:
+    - kubernetes
+    ip: 127.0.0.1
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/admin.conf
+    name: kubeconfig
+status: {}
+
+[ansible@dev-mas001v ~]$
+
+
+
+
+
+Masters are unable to join to existing cluster
+
+Aug 12 17:55:40 dev-mas003v systemd[1]: Stopped kubelet: The Kubernetes Node Agent.
+Aug 12 17:55:40 dev-mas003v systemd[1]: Started kubelet: The Kubernetes Node Agent.
+Aug 12 17:55:40 dev-mas003v kubelet[31537]: E0812 17:55:40.680093   31537 run.go:74] "command failed" err="failed to load kubelet config file, error: failed to load Kubelet config file /var/lib/kubelet/config.yaml, error failed to read kubelet config file \"/var/lib/kubelet/config.yaml\", error: open /var/lib/kubelet/config.yaml: no such file or directory, path: /var/lib/kubelet/config.yaml"
+Aug 12 17:55:40 dev-mas003v systemd[1]: kubelet.service: Main process exited, code=exited, status=1/FAILURE
+Aug 12 17:55:40 dev-mas003v systemd[1]: kubelet.service: Failed with result 'exit-code'.
+
+
+fatal: [dev-mas002v]: FAILED! => {
+    "attempts": 3,
+    "changed": true,
+    "cmd": [
+        "kubeadm",
+        "join",
+        "192.168.10.22:6443",
+        "--token",
+        "463zxc.hqoosvycg00lml1e",
+        "--discovery-token-ca-cert-hash",
+        "sha256:dc8c36662ce695235b571550f69e7f49852895077d1f6e7beb9b20468e307e69",
+        "--control-plane",
+        "--certificate-key",
+        "5187b461d50f7dbb5802835d05dcdf98032ca31c3f89b6ba984be3f3c9fa247e"
+    ],
+    "delta": "0:00:00.380001",
+    "end": "2023-08-12 17:44:15.678370",
+    "invocation": {
+        "module_args": {
+            "_raw_params": "kubeadm join 192.168.10.22:6443 --token 463zxc.hqoosvycg00lml1e --discovery-token-ca-cert-hash sha256:dc8c36662ce695235b571550f69e7f49852895077d1f6e7beb9b20468e307e69  --control-plane --certificate-key 5187b461d50f7dbb5802835d05dcdf98032ca31c3f89b6ba984be3f3c9fa247e",
+            "_uses_shell": false,
+            "argv": null,
+            "chdir": null,
+            "creates": null,
+            "executable": null,
+            "removes": null,
+            "stdin": null,
+            "stdin_add_newline": true,
+            "strip_empty_ends": true
+        }
+    },
+    "msg": "non-zero return code",
+    "rc": 1,
+    "start": "2023-08-12 17:44:15.298369",
+    "stderr": "\t[WARNING Firewalld]: firewalld is active, please ensure ports [6443 10250] are open or your cluster may not function correctly\nW0812 17:44:15.602576   29823 checks.go:835] detected that the sandbox image \"registry.k8s.io/pause:3.6\" of the container runtime is inconsistent with that used by kubeadm. It is recommended that using \"registry.k8s.io/pause:3.9\" as the CRI sandbox image.\nerror execution phase control-plane-prepare/download-certs: error downloading certs: error downloading the secret: Secret \"kubeadm-certs\" was not found in the \"kube-system\" Namespace. This Secret might have expired. Please, run `kubeadm init phase upload-certs --upload-certs` on a control plane to generate a new one\nTo see the stack trace of this error execute with --v=5 or higher",
+    "stderr_lines": [
+        "\t[WARNING Firewalld]: firewalld is active, please ensure ports [6443 10250] are open or your cluster may not function correctly",
+        "W0812 17:44:15.602576   29823 checks.go:835] detected that the sandbox image \"registry.k8s.io/pause:3.6\" of the container runtime is inconsistent with that used by kubeadm. It is recommended that using \"registry.k8s.io/pause:3.9\" as the CRI sandbox image.",
+        "error execution phase control-plane-prepare/download-certs: error downloading certs: error downloading the secret: Secret \"kubeadm-certs\" was not found in the \"kube-system\" Namespace. This Secret might have expired. Please, run `kubeadm init phase upload-certs --upload-certs` on a control plane to generate a new one",
+        "To see the stack trace of this error execute with --v=5 or higher"
+    ],
+    "stdout": "[preflight] Running pre-flight checks\n[preflight] Reading configuration from the cluster...\n[preflight] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -o yaml'\n[preflight] Running pre-flight checks before initializing the new control plane instance\n[preflight] Pulling images required for setting up a Kubernetes cluster\n[preflight] This might take a minute or two, depending on the speed of your internet connection\n[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'\n[download-certs] Downloading the certificates in Secret \"kubeadm-certs\" in the \"kube-system\" Namespace",
+    "stdout_lines": [
+        "[preflight] Running pre-flight checks",
+        "[preflight] Reading configuration from the cluster...",
+        "[preflight] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -o yaml'",
+        "[preflight] Running pre-flight checks before initializing the new control plane instance",
+        "[preflight] Pulling images required for setting up a Kubernetes cluster",
+        "[preflight] This might take a minute or two, depending on the speed of your internet connection",
+        "[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'",
+        "[download-certs] Downloading the certificates in Secret \"kubeadm-certs\" in the \"kube-system\" Namespace"
+    ]
+}
+
+
+7.Unable to run "systemctl edit zabbix-agent"
+  <Case>
+    Unable to run "systemctl edit zabbix-agent"
+
+    [root@dev-zbx002v ~]# systemctl edit zabbix-agent
+    Editing "/etc/systemd/system/zabbix-agent.service.d/override.conf" canceled: temporary file is empty.
+
+    [root@dev-zbx002v ~]# view /var/log/messages
+    Aug 25 17:40:31 dev-zbx002v systemd[1]: Reloading.
+    Aug 25 17:40:31 dev-zbx002v systemd-rc-local-generator[17009]: /etc/rc.d/rc.local is not marked executable, skipping.
+
+    <Desired output>
+      [root@dev-zbx001v ~]# systemctl edit zabbix-agent
+      Editing "/etc/systemd/system/zabbix-agent.service.d/override.conf
+
+  <Solution>
+    (It seems that)This operation is for old zabbix-agent so run the following commands.
+    The issue is related to other cause but for now it is OK to apply the configuration to resolve it.
+
+    Reference: https://www.zabbix.com/documentation/current/jp/manual/appendix/install/run_agent_as_root#zabbix-agent
+               https://qiita.com/infra_buld/items/59ca72536f2628a0ee81
+
+    # vi /usr/lib/systemd/system/zabbix-agent.service
+    # ls -l /usr/lib/systemd/system/zabbix-agent.service
+    -rw-r--r-- 1 root root 434 Aug 25 18:40 /usr/lib/systemd/system/zabbix-agent.service
+    [Service]
+    User=root
+    Group=root
+
+
+8.Error "failed to accept an incoming connection: connection from "127.0.0.1" rejected, allowed hosts: "192.168.10.31"" on /var/log/zabbix/zabbix_agentd.log
+  <Case>
+    [root@dev-zbx002v ~]#  tail -100 /var/log/zabbix/zabbix_agentd.log
+    18443:20230825:192815.060 failed to accept an incoming connection: connection from "127.0.0.1" rejected, allowed hosts: "192.168.10.31"
+
+    # view /etc/zabbix/zabbix_agentd.conf
+    Server=192.168.10.31
+    ServerActive=192.168.10.31
+
+  <Solution>
+    Default host "Zabbix server" created already on Configuration => Hosts on GUI of Zabbix has "127.0.0.1" but I set IP address of Zabbix server only on /etc/zabbix/zabbix_agentd.conf.
+    Because of that, agent can't communicate with IP address of Zabbix server(default host will use "127.0.0.1" but agent doesn't use "127.0.0.1"). To resolve it I added "127.0.0.1" to it.
+
+    Server=127.0.0.1,192.168.10.31
+    ServerActive=127.0.0.1,192.168.10.31
+
+    Reference: https://scribble.washo3.com/linux/zabbix-agent-trouble-faq-2016.html
+
+
+9.Error "cannot send list of active checks to "127.0.0.1": host [dev-zbx002v] not found"
+  <Case>
+    [root@dev-zbx002v ~]#  tail -50 /var/log/zabbix/zabbix_server.log
+     16732:20230825:182633.075 cannot send list of active checks to "127.0.0.1": host [dev-zbx002v] not found
+    [root@dev-zbx002v ~]#  tail -100 /var/log/zabbix/zabbix_agentd.log
+     18445:20230825:192728.679 no active checks on server [192.168.10.31:10051]: host [dev-zbx002v] not found
+
+  <Solution>
+    Zabbix couldn't do name resolution. To resolve it, I added information of IP address and hostname into /etc/hosts
+
+
+10.Host status on GUI of Zabbix doesn't change from Unknown to Available
+   <Case>
+     Host status on GUI of Zabbix doesn't change from Unknown to Available.
+     Monitoring Host is Active(can get data from node).
+
+   <Solution>
+     It doesn't change unless Zabbix does Zabbix agent monitoring. For confirming it I added template "Linux by Zabbix agent",
+     After doing it, Changed.
+
+     Reference: https://cosol.jp/techdb/2018/09/zabbix_mistaking/
+
+
+11.Unable to stop zabbix-server service
+   <Case>
+     Unable to stop zabbix-server service with "systemctl stop zabbix-server"
+
+     ansible@dev-kvm001p:~$ sudo virsh console dev-zbx002v
+     Connected to domain 'dev-zbx002v'
+     [    **] A stop job is running for Zabbix Server (5min 35s / no limit)
+     =>Alse unable to shutdown
+
+
+   <Solution>
+     You need to stop mysqld service after stopping zabbix-server.
+     Or run the command.
+
+     # vi /etc/systemd/system.conf
+     DefaultTimeoutStopSec=90s
+     # systemctl daemon-reload
+     # reboot
+
+
+12.Unable to start mysql resource of Pacemaker
+   <Case>
+     Mysqld can start with systemd however mysqld managed by Pacemaker can't start.
+
+     [root@dev-zbx001v ~]# pcs status
+     Cluster name: zabbix-cluster
+     Status of pacemakerd: 'Pacemaker is running' (last updated 2023-09-05 06:40:05 +09:00)
+     Cluster Summary:
+       * Stack: corosync
+       * Current DC: dev-zbx002v (version 2.1.5-9.el9_2-a3f44794f94) - partition with quorum
+       * Last updated: Tue Sep  5 06:40:06 2023
+       * Last change:  Fri Sep  1 23:22:51 2023 by hacluster via crmd on dev-zbx001v
+       * 2 nodes configured
+       * 6 resource instances configured
+
+     Node List:
+       * Online: [ dev-zbx001v dev-zbx002v ]
+
+     Full List of Resources:
+       * Clone Set: mysql-clone [mysql]:
+         * Stopped: [ dev-zbx001v dev-zbx002v ]
+       * Resource Group: zabbix-group:
+         * apache    (ocf:heartbeat:apache):  Stopped
+         * php-fpm   (systemd:php-fpm):       Stopped
+         * zabbix-server     (systemd:zabbix-server):         Stopped
+         * vip       (ocf:heartbeat:IPaddr2):         Stopped
+
+     Failed Resource Actions:
+       * mysql start on dev-zbx002v returned 'error' (MySQL server failed to start (pid=7884) (rc=7), please check your installation) at Fri Sep  1 23:22:53 2023 after 2.455s
+       * mysql start on dev-zbx001v returned 'error' (MySQL server failed to start (pid=10302) (rc=7), please check your installation) at Fri Sep  1 23:22:53 2023 after 2.423s
+
+     Daemon Status:
+       corosync: active/enabled
+       pacemaker: active/enabled
+       pcsd: active/enabled
+
+
+   <Solution>
+     Path of mysql-server's binary passed to Pacemaker was incorrect. Before registering Pacemaker, mysqld refers to /etc/my.cnf.d/mysql-server
+     So it works propery. For Pacemaker setting put new conf file and Pass the wrong path information when registering mysqld resource.
+     Because of that it didn't work. I modifed the wrong parameter.
+
+     # I changed parameter a bit as I read official doc of Pacemaker .
+
+     <Before>
+       # pcs resource create mysql \
+       > ocf:heartbeat:mysql \
+       > binary=/usr/bin/mysql \ # <= here
+       > datadir=/var/lib/mysql \
+       > log=/var/log/mysql/mysqld.log \
+       > pid=/var/run/mysqld/mysqld.pid \
+       > replication_user=repl \
+       > replication_passwd=<Password of repl user> \
+       > op monitor interval=10s timeout=10s
+       #      # pcs resource clone mysql master-max=1 master-node-max=1 clone-max=2 clone-node-max=1 notify=true
+
+     <After>
+       # pcs resource create mysqld \
+       > ocf:heartbeat:mysql \
+       > binary=/usr/sbin/mysqld \ # <= here
+       > config=/etc/my.cnf \
+       > datadir=/var/lib/mysql \
+       > log=/var/log/mysql/mysqld.log \
+       > pid=/run/mysqld/mysqld.pid \
+       > replication_user=repl \
+       > replication_passwd=<Password of repl user> \
+       > socket=/var/lib/mysql/mysql.sock \
+       > op monitor interval=29s \
+       > role=Promoted monitor interval=31s role=Unpromoted
+       # pcs resource promotable mysqld promoted-max=1 promoted-node-max=1 clone-max=2 clone-node-max=1 notify=true
+
+13.Unable to change node (failover) on Pacemaker cluster (In case of mysqld resource )
+   <Case>
+     Unable to change node (failover) on Pacemaker cluster (In case of mysqld resource )
+
+   [root@dev-zbx001v ~]# pcs status
+   Cluster name: zabbix-cluster
+   Status of pacemakerd: 'Pacemaker is running' (last updated 2023-09-06 16:41:17 +09:00)
+   Cluster Summary:
+     * Stack: corosync
+     * Current DC: dev-zbx002v (version 2.1.5-9.el9_2-a3f44794f94) - partition with quorum
+     * Last updated: Wed Sep  6 16:41:18 2023
+     * Last change:  Wed Sep  6 12:42:07 2023 by root via cibadmin on dev-zbx001v
+     * 2 nodes configured
+     * 6 resource instances configured
+
+   Node List:
+     * Node dev-zbx002v: standby
+     * Online: [ dev-zbx001v ]
+
+   Full List of Resources:
+     * Clone Set: mysqld-clone [mysqld] (promotable):
+       * mysqld    (ocf:heartbeat:mysql):   Stopped dev-zbx001v (Monitoring)
+       * Stopped: [ dev-zbx001v dev-zbx002v ]
+     * Resource Group: zabbix-group:
+       * apache    (ocf:heartbeat:apache):  Stopped
+       * php-fpm   (systemd:php-fpm):       Stopped
+       * zabbix-server     (systemd:zabbix-server):         Stopped
+       * vip       (ocf:heartbeat:IPaddr2):         Stopped
+
+   Failed Resource Actions:
+     * mysqld 11s-interval monitor on dev-zbx001v returned 'promoted' at Wed Sep  6 12:36:11 2023 after 122ms
+
+   Daemon Status:
+     corosync: active/enabled
+     pacemaker: active/enabled
+     pcsd: active/enabled
+
+   <Solution>
+     1.It seems that the monitor interval is too short (I thought so). So I set a bit long interval time.
+
+     <Before>
+       # pcs resource create mysqld \
+       > ocf:heartbeat:mysql \
+       > binary=/usr/sbin/mysqld \
+       > config=/etc/my.cnf \
+       > datadir=/var/lib/mysql \
+       > log=/var/log/mysql/mysqld.log \
+       > pid=/run/mysqld/mysqld.pid \
+       > replication_user=repl \
+       > replication_passwd=<Password of repl user> \
+       > socket=/var/lib/mysql/mysql.sock \
+       > op monitor interval=10s \
+       > role=Promoted monitor interval=11s role=Unpromoted
+
+     <After>
+       # pcs resource create mysqld \
+       > ocf:heartbeat:mysql \
+       > binary=/usr/sbin/mysqld \
+       > config=/etc/my.cnf \
+       > datadir=/var/lib/mysql \
+       > log=/var/log/mysql/mysqld.log \
+       > pid=/run/mysqld/mysqld.pid \
+       > replication_user=repl \
+       > replication_passwd=<Password of repl user> \
+       > socket=/var/lib/mysql/mysql.sock \
+       > op monitor interval=29s \
+       > role=Promoted monitor interval=31s role=Unpromoted
+
+
+
+    <Before>
+      # pcs constraint location mysqld-clone prefers <hostname of Zabbix server 1>=100
+      # pcs resource group add zabbix-group apache php-fpm zabbix-server vip
+      # pcs constraint order promote mysqld-clone then start zabbix-group
+      # pcs constraint colocation add zabbix-group with Promoted mysqld-clone INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with zabbix-server INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with apache INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with php-fpm INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with vip INFINITY
+
+
+      # pcs constraint location mysqld-clone prefers <hostname of Zabbix server 1>=100
+      # pcs resource group add zabbix-group apache php-fpm zabbix-server vip
+      # pcs constraint order promote mysqld-clone then start zabbix-group
+      # pcs constraint colocation add zabbix-group with Promoted mysqld-clone INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with zabbix-server INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with apache INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with php-fpm INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with vip INFINITY
+
+     2.Failed counts is not refreshed automatically, so you need to run to do it
+       # pcs resource failcount
+       =>You can see the current counts on the node
+       # pcs resource cleanup
+       
+       # pcs resource defaults migration-threshold=1
+       =>This command is the count. If resource has failed once, failover occurs then add 1 fail-count.
+         (never failover again on the node)
+
+
+14.The error "Warning: Using a password on the command line interface can be insecure." is displayed on mysql log under /var/log/mysql directory
+   <Case>
+     The error "Warning: Using a password on the command line interface can be insecure." is displayed on mysql log under /var/log/mysql directory.
+
+   <Solution>
+     We used MySQL Server in Zabbix Server and configured Pacemaker HA with DB replication in this case. It seems that User "repl" for DB replication
+     wanted to connect with MySQL Slave database with insecure password. Plugin of User "repl" was "caching_sha2_password" but needed to set "mysql_native_password".
+     Pacemaker has the repl user password parameter to manage resource.
+
+     Reference: https://support.hcltechsw.com/csm?id=kb_article&sysparm_article=KB0102949
+
+     Run these command with mysql
+
+     mysql> SELECT user,host,plugin FROM mysql.user;
+     +------------------+-----------+-----------------------+
+     | user             | host      | plugin                |
+     +------------------+-----------+-----------------------+
+     | repl             | %         | caching_sha2_password | # here
+     | mysql.infoschema | localhost | caching_sha2_password |
+     | mysql.session    | localhost | caching_sha2_password |
+     | mysql.sys        | localhost | caching_sha2_password |
+     | repl             | localhost | caching_sha2_password | # here
+     | root             | localhost | caching_sha2_password |
+     | zabbix           | localhost | caching_sha2_password | # here
+     +------------------+-----------+-----------------------+
+     7 rows in set (0.01 sec)
+
+     mysql> SET GLOBAL validate_password.policy=LOW;
+     Query OK, 0 rows affected (0.00 sec)
+
+     mysql> ALTER USER 'repl' IDENTIFIED WITH mysql_native_password BY '<Password of repl user>';
+     Query OK, 0 rows affected (0.02 sec)
+
+     mysql> ALTER USER 'repl'@'localhost' IDENTIFIED WITH mysql_native_password BY '<Password of repl user>';
+     Query OK, 0 rows affected (0.02 sec)
+
+     mysql> ALTER USER 'zabbix'@'localhost' IDENTIFIED WITH mysql_native_password BY '<Password of zabbix user>';
+     Query OK, 0 rows affected (0.01 sec)
+
+     mysql> SELECT user,host,plugin FROM mysql.user;
+     +------------------+-----------+-----------------------+
+     | user             | host      | plugin                |
+     +------------------+-----------+-----------------------+
+     | repl             | %         | mysql_native_password | # here
+     | mysql.infoschema | localhost | caching_sha2_password |
+     | mysql.session    | localhost | caching_sha2_password |
+     | mysql.sys        | localhost | caching_sha2_password |
+     | repl             | localhost | mysql_native_password | # here
+     | root             | localhost | caching_sha2_password |
+     | zabbix           | localhost | mysql_native_password | # here
+     +------------------+-----------+-----------------------+
+     7 rows in set (0.00 sec)
+
+     Or give the parameter "with mysql_native_password" when creating user
+     mysql> create user 'repl'@'%' identified with mysql_native_password by '<Password>';
+
+
+15.Unable to replicate MySQL DB with the error "Fatal error: The slave I/O thread stops because master and slave have equal MySQL server UUIDs; these UUIDs must be different for replication to work."
+   <Case>
+     Unable to replicate MySQL DB
+
+     mysql> SHOW REPLICA STATUS\G
+     *************************** 1. row ***************************
+     ...
+                     Last_IO_Error: Fatal error: The slave I/O thread stops because master and slave have equal MySQL server UUIDs; these UUIDs must be different for replication to work.
+
+   <Solution>
+     Delete /var/lib/mysql/auto.cnf and reboot mysqld service.
+     In creating Zabbix server1 and 2, We bring "/var/lib/mysql" directory fron Zabbix server1 to 2 so they have same auto.cnf.
+
+     Reference: https://blog.youyo.info/post/2014/06/02/mysql-replication-copy/
+
+     [root@dev-zbx001v ~]# cat /var/lib/mysql/auto.cnf
+     [auto]
+     server-uuid=6a8db5bf-4d88-11ee-ab17-5254000277aa
+
+     [root@dev-zbx002v ~]# cat /var/lib/mysql/auto.cnf
+     [auto]
+     server-uuid=6a8db5bf-4d88-11ee-ab17-5254000277aa
+
+
+
+
+Last_IO_Error: error reconnecting to master 'repl@dev-zbx001v:3306' - retry-time: 60 retries: 1 message: Can't connect to MySQL server on 'dev-zbx001v:3306' (111)
+
+
+
+
+
+
+2023-10-03T16:24:47.961370Z 11 [Warning] [MY-010897] [Repl] Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+2023-10-03T16:24:47.962672Z 11 [System] [MY-010562] [Repl] Slave I/O thread for channel '': connected to master 'repl@dev-zbx001v:3306',replication started in log 'mysql-bin.000030' at position 317650
+2023-10-03T16:26:36.599348Z 11 [System] [MY-010558] [Repl] Slave for channel '': received end packet from server due to dump thread being killed on master. Dump threads are killed for example during master shutdown, explicitly by a user, or when the master receives a binlog send request from a duplicate server UUID <d094f7f9-5184-11ee-bf76-52540066f375> : Error
+2023-10-03T16:26:36.599480Z 11 [Warning] [MY-010897] [Repl] Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+2023-10-03T16:26:36.599767Z 11 [ERROR] [MY-010584] [Repl] Slave I/O for channel '': error reconnecting to master 'repl@dev-zbx001v:3306' - retry-time: 60 retries: 1 message: Can't connect to MySQL server on 'dev-zbx001v:3306' (111), Error_code: MY-002003

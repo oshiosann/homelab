@@ -1,0 +1,14 @@
+---
+- hosts: all
+  tasks:
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: Include role create_hosts_file
+      ansible.builtin.include_role:
+        name: create_hosts_file

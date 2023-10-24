@@ -1,0 +1,8 @@
+---
+hostname: "{{ host_parameters.worker001v.hostname }}"
+firewall_ports:
+  - "8472/udp"
+#  - "9102/tcp"
+  - "10050/tcp"
+  - "10250/tcp"
+  - "30000-32767/tcp"

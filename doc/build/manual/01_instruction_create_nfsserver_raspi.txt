@@ -1,0 +1,362 @@
+Å°Description
+  This Document is for building NFS Server on Raspberry Pi by hands. It doesn't use any automation tool
+  since NFS Server is going to be built before Ansible Server.
+
+
+Å°Prerequisite
+  1.Plase connect needed components to Raspberry Pi such as power supply and keyboard in order to boot and set it up
+  2.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  3.Please replace the information depending on the environment(e.g, IP address) with the actual information
+
+  <hardware information> (not all)
+    Machine: Raspberry Pi 4 Model B 4GB
+    SD Card: SanDisk SDSQUA4-064G-EPK
+    HDD: SEAGATE BarraCuda ST6000DM003 (6TB) *2
+    HDD Dock: Kuroto SHiko KURO-DACHI/CLONE/CRU3
+
+  <Software information>
+    AlmaLinux release 8.7 (Stone Smilodon)
+    mdadm-4.2-7.el8
+    nfs-utils-2.3.3-59.el8
+
+
+Å°Work Procedure
+  1.Prepare OS Image and boot OS (Install AlmaLinux)
+    1-1.Insert SD Card to your Laptop/Desktop PC
+
+    1-2.Download OS Image with URL below
+          https://repo.almalinux.org/rpi/images/AlmaLinux-8-RaspberryPi-8.7-20221111.aarch64.raw.xz
+
+    1-3.Format SD Card to FAT32 with Windows Explorer App
+        Reference: https://jp.easeus.com/partition-manager/format-sd-card-for-raspberry-pi.html
+
+    1-4.create bootable SD Card with Rufus
+        Reference: https://lovely910.com/rufus-%E3%83%AB%E3%83%BC%E3%83%95%E3%82%A1%E3%82%B9-%E3%82%92%E4%BD%BF%E3%81%A3%E3%81%A6%E3%80%81%E3%82%A4%E3%83%A1%E3%83%BC%E3%82%B8%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%8B%E3%82%89raspberry-p/
+        You can download it there.
+
+    1-5.Pull out SD Card from laptop and insert it to Raspberry Pi
+
+    1-6.boot Raspberry Pi and confirm if it booted normally
+        Login prompt shold be appeard on display
+
+    1-7.login as root
+        Initial password is "almalinux"
+
+  2.Basic settings
+    2-1.Change root password
+        # passwd
+        =>Change Initial password to new one and do login test
+          you can logout with Ctrl + D
+
+    2-2.Timezone settings
+        # timedatectl
+        =>Check current settings
+        # timedatectl set-timezone Asia/Tokyo
+        # timedatectl
+        =>Check that the settings have been applied
+
+    2-3.Locale settings
+        # localectl
+        =>Check current settings
+        # localectl set-locale LANG=en_US.utf8
+        # localectl set-keymap jp106
+        # localectl
+        =>Check that the settings have been applied
+
+    2-4.Change hostname
+        # hostnamectl set-hostname <hostname>
+        =>Once you re-login, it will be applied
+          e.g. dev-nfs001p
+
+    2-5.IP address settings
+        # ip a
+        =>Check current IP address
+        # nmcli c
+        =>Check connection resources
+          Value of "NAME" will be used on next command as <name>
+        # nmcli c mod "<name>" ipv4.address <host IP address>/<Prefix>
+        # nmcli c mod "<name>" ipv4.gateway <gateway IP address>
+        # nmcli c mod "<name>" ipv4.method manual
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # nmcli c
+        =>Check that the settings have been applied
+        # ip a
+        =>Check that the settings have been applied
+
+    2-6.Disable Wi-Fi function
+        # nmcli radio wifi
+        =>Check current settings
+        # nmcli radio wifi off
+        # nmcli radio wifi
+        # nmcli c s
+        =>Check that the settings have been applied
+
+    2-7.Disable IPv6
+        # nmcli con mod "<name>" ipv6.method disabled
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # ip a |grep inet6
+        # ip a
+        =>Check that the settings have been applied
+          Ipv6 address of <name> Network interface should be disappeard
+        # cat /proc/sys/net/ipv6/conf/eth0/disable_ipv6
+        =>Check if the value is "1"
+
+    2-8.resolv.conf settings
+        # vi /etc/resolv.conf
+        =>Add IP address of DNS Server
+          nameserver <IP Adress of DNS Server>
+
+    2-9.SELinux settings
+        # getenforce
+        =>Check current settings
+        # sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+        # cat /etc/selinux/config |grep ^SELINUX=
+        =>Check that the settings have been applied
+        # reboot
+        # getenforce
+        =>Login and check that the settings have been applied
+
+    2-10.Basic Firewall settings
+         # systemctl status firewalld
+         =>Check if "Active status" is "active (running)"
+         # systemctl start firewalld
+         =>Execute this command If "Active status" is "inactive (dead)"
+         # firewall-cmd --list-all
+         =>Check if the content is the same as below
+           public (active)
+             target: default
+             icmp-block-inversion: no
+             interfaces: eth0
+             sources:
+             services: cockpit dhcpv6-client ssh
+             ports: 22/tcp
+             protocols:
+             forward: no
+             masquerade: no
+             forward-ports:
+             source-ports:
+             icmp-blocks:
+             rich rules:
+         # systemctl enable firewalld
+         # systemctl is-enabled firewalld
+         =>Check if it is "enabled"
+
+         This tasks are for stopping and disabling firewalld.(Skip them)
+         # systemctl status firewalld
+         =>Check if "Active status" is "active (running)"
+         # systemctl --now disable firewalld
+         # systemctl status firewalld
+         =>Check that the status changed "Active: inactive (dead)"
+
+    2-11.Create ansible user as common user
+         # useradd ansible
+         =>Ansible user is used as common user on this Server
+         # passwd ansible
+         =>Change password to new one and do login test
+           you can logout with Ctrl + D
+         # visudo
+         =>Delete comment out like below
+           ## Allows people in group wheel to run all commands
+           %wheel  ALL=(ALL)       ALL
+         # usermod -aG wheel ansible
+         # su ansible
+         $ groups
+         =>Check if ansible user is on ansible and wheel groups
+           ansible wheel
+
+    2-12.ssh settings
+         # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+         # ls -l /etc/ssh/sshd_config*
+         # vi /etc/ssh/sshd_config
+         =>Modify conf file like below
+           PermitRootLogin no
+           =>Modify yes to no
+         # systemctl restart sshd && sudo systemctl enable sshd
+         # systemctl status sshd
+         # systemctl is-enabled sshd
+         =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+           Do login test
+-
+    2-13.NTP settings
+         # systemctl status chronyd
+         # systemctl stop chronyd
+         =>Stop chronyd if it is up
+         # firewall-cmd --zone=public --add-service=ntp --permanent
+         # firewall-cmd --reload
+         =>Check if the content is the same as below (ntp added to allowed services)
+           public (active)
+             target: default
+             icmp-block-inversion: no
+             interfaces: eth0
+             sources:
+             services: cockpit dhcpv6-client ntp ssh
+             ports: 22/tcp
+             protocols:
+             forward: no
+             masquerade: no
+             forward-ports:
+             source-ports:
+             icmp-blocks:
+             rich rules:
+         # cp -p  /etc/chrony.conf /etc/chrony.conf_org
+         # ls -l /etc/chrony.conf*
+         # vi /etc/chrony.conf
+         =>Modify conf file like below
+           #pool 2.almalinux.pool.ntp.org iburst
+           =>Add # for comment out
+
+           server ntp.nict.jp iburst
+           =>Add line
+           server 210.173.160.27 iburst
+           =>Add line(If there is not DNS Server)
+             Reference: https://www.infraexpert.com/study/tcpip29.html
+           allow <Network address to allow>/<Prefix>
+           =>Add line for clients to sync
+         # systemctl enable --now chronyd
+         # systemctl status chronyd
+         =>Check if there are any errors and enabled
+         # chronyc sources
+         =>Check if chrony syncs with specified IP address and the status changed "Active: active (running)"
+
+    2-14.Expand root file system
+         # df -h
+         =>It doesn't use its full strage
+           Filesystem      Size  Used Avail Use% Mounted on
+           /dev/root       2.2G  1.8G  365M  83% /
+         # rootfs-expand
+         # reboot
+         #df -h
+         =>Expanded available strage
+           Filesystem      Size  Used Avail Use% Mounted on
+           /dev/root        59G  1.8G   57G   3% /
+
+    2-15.update packages
+         # dnf -y upgrade
+
+    3.RAID1 settings
+      # fdisk -l
+      =>Check connected 2 HDD
+        Disk /dev/sda: 5.5 TiB, 6001175126016 bytes, 11721045168 sectors
+        Units: sectors of 1 * 512 = 512 bytes
+        Sector size (logical/physical): 512 bytes / 512 bytes
+        I/O size (minimum/optimal): 4096 bytes / 33553920 bytes
+
+
+        Disk /dev/sdb: 5.5 TiB, 6001175126016 bytes, 11721045168 sectors
+        Units: sectors of 1 * 512 = 512 bytes
+        Sector size (logical/physical): 512 bytes / 512 bytes
+        I/O size (minimum/optimal): 4096 bytes / 33553920 bytes
+      # dnf -y install mdadm
+      # dnf info mdadm
+      =>Check if mdadm exists
+      # parted --script /dev/sda "mklabel gpt"
+      # parted --script /dev/sdb "mklabel gpt"
+      # parted --script /dev/sda "mkpart primary 0% 100%"
+      # parted --script /dev/sdb "mkpart primary 0% 100%"
+      # parted --script /dev/sda "set 1 raid on"
+      # parted --script /dev/sdb "set 1 raid on"
+      # mdadm --create /dev/md0 --level=raid1 --raid-devices=2 /dev/sda1 /dev/sdb1
+      =>Proceed by typing "y"
+        mdadm: Note: this array has metadata at the start and
+            may not be suitable as a boot device.  If you plan to
+            store '/boot' on this device please ensure that
+            your boot-loader understands md/v1.x metadata, or use
+            --metadata=0.90
+        Continue creating array?
+        mdadm: Defaulting to version 1.2 metadata
+        mdadm: array /dev/md0 started.
+
+      # mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sda1 /dev/sdb1
+      =>It takes over 10 hours to finish
+      # cat /proc/mdstat
+      =>Check by the command and Wait until the end
+        It may take 10 hours on 6TB HDD
+        Personalities : [raid1]
+        md0 : active raid1 sdb1[1] sda1[0]
+              5860335232 blocks super 1.2 [2/2] [UU]
+              [>....................]  resync =  0.6% (36213568/5860335232) finish=677.8min speed=143206K/sec
+              bitmap: 44/44 pages [176KB], 65536KB chunk
+
+        unused devices: <none>
+
+      =>It is OK to move next step
+        Personalities : [raid1]
+        md0 : active raid1 sdb1[1] sda1[0]
+              5860335232 blocks super 1.2 [2/2] [UU]
+              bitmap: 0/44 pages [0KB], 65536KB chunk
+
+        unused devices: <none>
+      # mkfs.ext4 /dev/md0
+      # mount /dev/md0 /mnt
+      # df -hT
+      =>Check if /dev/md0 was mounted to /mnt
+        /dev/md0       ext4      5.5T   28K  5.2T   1% /mnt
+      # blkid | grep md
+      =>Check UUID to add information onto fstab
+        /dev/md0: UUID="5c496a38-7eea-4542-8c2f-d1330148fa03" BLOCK_SIZE="4096" TYPE="ext4"
+      # vi /etc/fstab
+      =>Add the line
+        UUID=5c496a38-7eea-4542-8c2f-d1330148fa03 /mnt  ext4    defaults        0 0
+      # df -hT /mnt
+      =>Check the mounted status after work
+        Filesystem     Type  Size  Used Avail Use% Mounted on
+        /dev/md0       ext4  5.5T   28K  5.2T   1% /mnt
+
+      Following tasks are How to replace failed HDD.
+      # cat /proc/mdstat
+      =>It shows only 1 HDD when HDD fails
+        Outputs of the command is example
+          Personalities : [raid1]
+          md0 : active (auto-read-only) raid1 sdb1[0]
+                83817472 blocks super 1.2 [2/1] [U_]
+
+          unused devices: <none>
+
+      Replace failed HDD to new one.
+      # fdisk -l
+      =>Check the name of new HDD
+      # parted --script /dev/<device name> "mklabel gpt"
+      # parted --script /dev/<device name> "mkpart primary 0% 100%"
+      # parted --script /dev/<device name> "set 1 raid on"
+
+      # mdadm --manage /dev/md0 --add /dev/<partition name>
+      mdadm: added /dev/<partition name>
+      [root@dlp ~]# cat /proc/mdstat
+      Personalities : [raid1]
+      md0 : active raid1 sdc1[2] <partition name>[0]
+            83817472 blocks super 1.2 [2/1] [U_]
+            [>....................]  recovery =  2.4% (2028736/83817472) finish=8.7min speed=156056K/sec
+
+      unused devices: <none>
+
+    4.NFS settings
+      # dnf -y install nfs-utils
+      # mkdir -p /mnt/share/backup
+      #ls -ld /mnt/share/backup
+      =>Check if the directories were created
+      # mkdir -p /mnt/share/common/
+      # chown ansible.ansible /mnt/share/common/
+      =>Check if the owner and group are ansible
+      # vi /etc/exports
+      =>Add lines you want to access from network or host
+        /mnt/share <Network address to allow e.g., 192.168.10.0>/<Prefix>(async,rw,no_root_squash,fsid=0)
+        /mnt/share <Network address to allow e.g., 192.168.122.0>/<Prefix>(async,rw,no_root_squash,fsid=0)
+      # systemctl enable --now rpcbind nfs-server
+      # firewall-cmd --zone=public --add-service={nfs3,mountd,rpc-bind} --permanent
+      # firewall-cmd --reload
+      # firewall-cmd --list-all
+      =>Check if the content is the same as below (mountd, nfs3 and rpc-bind added to allowed services)
+      public (active)
+        target: default
+        icmp-block-inversion: no
+        interfaces: eth0
+        sources:
+        services: cockpit dhcpv6-client mountd nfs3 ntp rpc-bind ssh
+        ports: 22/tcp
+        protocols:
+        forward: no
+        masquerade: no
+        forward-ports:
+        source-ports:
+        icmp-blocks:
+        rich rules:

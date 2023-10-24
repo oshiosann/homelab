@@ -1,0 +1,5 @@
+---
+hostname: "{{ host_parameters.bacu002v.hostname }}"
+firewall_ports:
+  - "9101-9103/tcp"
+  - "10050/tcp"

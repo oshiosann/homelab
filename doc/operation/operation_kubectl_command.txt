@@ -1,0 +1,362 @@
+#Tools
+#
+#kubectx
+#kubens
+
+[ansible@dev-mas001v .kube]$ dnf info kube*
+Last metadata expiration check: 0:00:05 ago on Wed 20 Sep 2023 04:04:47 PM JST.
+Installed Packages
+Name         : kubeadm
+Version      : 1.27.3
+Release      : 0
+Architecture : x86_64
+Size         : 46 M
+Source       : kubelet-1.27.3-0.src.rpm
+Repository   : @System
+From repo    : kubernetes
+Summary      : Command-line utility for administering a Kubernetes cluster.
+URL          : https://kubernetes.io
+License      : ASL 2.0
+Description  : Command-line utility for administering a Kubernetes cluster.
+
+Name         : kubectl
+Version      : 1.27.3
+Release      : 0
+Architecture : x86_64
+Size         : 47 M
+Source       : kubelet-1.27.3-0.src.rpm
+Repository   : @System
+From repo    : kubernetes
+Summary      : Command-line utility for interacting with a Kubernetes cluster.
+URL          : https://kubernetes.io
+License      : ASL 2.0
+Description  : Command-line utility for interacting with a Kubernetes cluster.
+
+Name         : kubelet
+Version      : 1.27.3
+Release      : 0
+Architecture : x86_64
+Size         : 101 M
+Source       : kubelet-1.27.3-0.src.rpm
+Repository   : @System
+From repo    : kubernetes
+Summary      : Container cluster management
+URL          : https://kubernetes.io
+License      : ASL 2.0
+Description  : The node agent of Kubernetes, the container cluster manager.
+
+Name         : kubernetes-cni
+Version      : 1.2.0
+Release      : 0
+Architecture : x86_64
+Size         : 49 M
+Source       : kubelet-1.26.1-0.src.rpm
+Repository   : @System
+From repo    : kubernetes
+Summary      : Binaries required to provision kubernetes container networking
+URL          : https://kubernetes.io
+License      : ASL 2.0
+Description  : Binaries required to provision container networking.
+
+
+
+
+
+
+$ kubectl config set-cluster <cluster name> --server=<server information>
+$ kubectl config set-credentials <user name> --client-certificate=<path to file> --client-key=<path to file> --namespace=<namespace name>
+$ kubectl config set-context <context name> --cluster=<cluster name> --user=<user name> --namespace=<namespace name>
+$ kubectl config get-contexts
+=>Get context list
+$ kubectl config use-context <context name>
+=>Switch context
+$ kubectl config current-context
+=>Get current context name
+$ kubectl --context <context name> get pods
+=>You can get information of each command by specifying context name
+
+
+$ kubectl get all
+$ kubectl get nodes
+$ kubectl get pods
+$ kubectl get pods -o yaml
+$ kubectl get pod sample-pod -o yaml
+$ kubectl get pods sample-pod -o jsonpath="{.spec.containers[?(@.name == 'nginx-container')].image}"
+  nginx:1.17
+$ kubectl get pods sample-pod -o jsonpath="{.metadata.name}"
+
+
+$ kubectl delete pod <pod name>
+$ kubectl delete -f <manifest file name>
+$ kubectl delete -f <manifest file name> --wait
+=>Wait resource deletion(Finalizers: https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/)
+$ kubectl delete -f <manifest file name> --force
+=>Delete resource forcely(immediately)
+$ kubectl delete pod --all
+$ kubectl get pods --watch
+$ kubectl get pods --watch --output-watch-events
+
+# $ kubectl create -f <manifest file name>
+$ kubectl create -f <manifest file name> --save-config
+=>Use "kubectl apply" (or "--save-config")
+$ kubectl apply -f <manifest file name>
+=>If the manifest file has the gap between past one and new one, it is applied. If no resources, create it
+  The warning might be shown. "Warning: resource pods/<pod name> is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically."
+  https://qiita.com/mmorino/items/ad66546c2bd069998377
+
+
+$ kubectl describe pod sample-pod
+
+
+
+
+
+$ kubectl apply -f <manifest file name> --server-side
+=>Enable Server-side apply
+$ kubectl apply -f <directory path>
+=>Apply multiple manifest file on specified directory
+$ kubectl apply -f <directory path> -R
+=>Apply multiple manifest file on specified directory include sub directory
+
+$ kubectl set image pod <pod name> nginx-container=nginx:1.17
+=>Update nginx mage from 1.16 to 1.17 without running "kubectl apply" (doesn't use manifest file)
+$ kubectl apply -f <manifest file name> --server-side --force-conflicts
+=>Ignire conflicts and apply
+$ kubectl apply -f <manifest file name> --server-side --field-manager <manager name e.g. ci-tool>
+=>The value of "manager" under "metadata.managedFields" of resource is set as "kubectl" when using "kubectl".
+  It means not distinguishing between using by hands and CI/CD tool. So you can modify the value to detect conflict.
+
+$ kubectl rollout restart deployment <deployment name>
+=>You can restart all pod of resource such as deployment (just pod not supportedll)
+
+
+
+$ kubectl wait --for=condition=Ready pod/<pod name>
+=>Wait for launching <pod name> successfully (Ready state)
+$ kubectl wait --for=condition=PodScheduled pod --all
+=>Wait by all pods are scheduled (PodScheduled state)
+$ kubectl wait --for=delete pod --all --timeout=5s
+=>wait max 5 sec per pod until all pods are deleted
+$ kubectl delete pod --all --wait=false
+=>Delete all pods and don't wait the deletion
+$ kubectl wait --for=delete pod --all
+=>Wait until all pods are deleted
+
+=> Other resources can be selected and specify manifest file name with -f option
+$ kubectl wait --for=condition=Ready -f <manifest file name>
+
+
+content of manifest file
+
+generateName
+=>Give pod name "given prefix + random name" It can only be used by "kubectl create" command (not supported "kubectl apply")
+  kind: Pod
+  metadata:
+    generateName: sample-generatename-
+
+
+$ kubect  annotate pods <pod name> <key>=<value>
+$ kubect  annotate pods <pod name> <key>=<value> --overwrite
+=>Overwrite existing annotation
+$ kubectl annotate pods <pod name> <key>-
+$ kubectl get pod sample-annotations -o json | jq .metadata.annotations
+=>Check annotations
+
+
+$ kubectl label pods <pod name> <label key>=<label value>
+$ kubectl label pods <pod name> <label key>=<label value> --overwrite
+$ kubectl get pod <pod name> -o json | jq .metadata.labels
+
+$ kubectl label pods <pod name> <label key>-
+$ kubectl get pods -l <label key>=<label value>
+NAME           READY   STATUS    RESTARTS   AGE
+sample-label   1/1     Running   0          3h32m
+$ kubectl get pods -l <label key>=<label value>,<label key2>
+=>AND
+
+$ kubectl get pods -L <label key>
+=>Display POD information with specified label key tab and
+  can see the key if the POD has the label and combine with "-l" option.
+  Note that it doesn't have filtered information.
+
+$ kubectl get pods --show-labels
+=>Can see the information with all labels
+
+$ kubectl get pods --output wide
+$ kubectl get pods -o wide
+
+
+$ kubectl apply -f ./ --prune -l <label key>=<label value>
+pod/sample-pod1 created
+pod/sample-pod2 created
+
+$ mv <manifest file name> <manifest file name>_back
+=>Delete manifest file(Changed name this time)
+
+$ kubectl apply -f ./ --prune -l <label key>=<label value>
+pod/sample-pod2 unchanged
+pod/sample-pod1 pruned
+=>POD of manifest file deleted
+
+$ kubectl edit pod <pod name>
+
+
+$ kubectl set image <resource> <resource name> <container name>=<container image>:<tag>
+=>Note that it has the gap between manifest and current resource on server
+  (It doesn't modify manifest containt)
+
+
+$ kubectl diff -f <manifest file name>
+...
+@@ -11,7 +11,7 @@
+   uid: 369893b8-752c-428a-8ab0-167e41e67ab6
+ spec:
+   containers:
+-  - image: nginx:1.16
++  - image: nginx:1.17
+     imagePullPolicy: IfNotPresent
+     name: nginx-container
+     resources: {}
+=>Return codes are 1 for having gap and 0 for having no gap
+
+
+$ kubectl api-resources
+=>Display list of available resources
+$ kubectl api-resources --namespaced=true
+=>namespace level resource
+$ kubectl api-resources --namespaced=false
+=>Cluster level resource
+
+
+$ kubectl exec -it <pod name> -- <command>
+=>run command on specified pod. Multiple pods can be specified.
+$ kubectl exec -it <pod name> -c <container name> -- <command>
+=>Also you can run command on specified container
+$ kubectl exec -it <pod name> -- /bin/bash
+=>You can login and run command on pod
+$ kubectl exec -it <pod name> -- /bin/bash -c "ls --all --classify | grep lib"
+=>You can use special character by using it as bash arguments
+
+$ kubectl debug <pod name> --image=<imagename>:<tag name> -it -- bash
+=>Create "Ephemeral Container" on Pod and run command
+or
+$ kubectl debug <pod name> --image=<imagename>:<tag name> --container <container name>
+$ kubectl exec -it <pod name> -c <container name> -- bash
+=>run separately
+
+
+$ kubectl port-forward <pod name> <local port>:<pod port>
+=>forward connection to localhost port to pod port (terminate Ctrl + c)
+
+$ kubectl port-forward <deployment name/service name> <local port>:<pod port>
+=>You can forward deployment and service same as pod but note that it can forward only one pod (multiple destination not available)
+
+
+
+
+$ kubectl logs <pod name>
+$ kubectl logs <pod name> -c <container name>
+$ kubectl logs -f <pod name>
+=>Follow updated logs
+$ kubectl logs --since=1h --tail=10 --timestamps=true <pod name>
+=>latest 1 hour 10 logs with timestamps
+$ kubectl logs --selector <label key>=<label value>
+=>filter with labels
+
+
+
+$ kubectl cp <pod name>:<path to file> <path to destination>
+=>Copy pod to local
+$ kubectl cp <path to file> <pod name>:<path to destination>
+=>Copy local to pod
+
+<debug>
+#$ kubectl -v=<log level>
+
+$ kubectl -v=6 get pod  # Display summary of HTTP Request/Response
+I1004 00:55:27.963697  439955 loader.go:373] Config loaded from file:  /home/ansible/.kube/config
+I1004 00:55:27.986224  439955 round_trippers.go:553] GET https://192.168.10.22:6443/api/v1/namespaces/default/pods?limit=500 200 OK in 16 milliseconds
+NAME                                 READY   STATUS    RESTARTS      AGE
+order1-deployment-66b74dff97-5jlsb   1/1     Running   1 (28h ago)   5d11h
+order1-deployment-66b74dff97-p596g   1/1     Running   1 (28h ago)   5d11h
+order1-deployment-66b74dff97-vv84p   1/1     Running   1 (28h ago)   5d11h
+sample-pod                           1/1     Running   2 (28h ago)   5d11h
+
+$ kubectl -v=8 apply -f ./kube_study/sample-multi-resource-manifest.yaml  # Display with Request / Response body
+I1004 00:57:23.949442  440460 loader.go:373] Config loaded from file:  /home/ansible/.kube/config
+I1004 00:57:23.950742  440460 round_trippers.go:463] GET https://192.168.10.22:6443/openapi/v2?timeout=32s
+I1004 00:57:23.950759  440460 round_trippers.go:469] Request Headers:
+I1004 00:57:23.950769  440460 round_trippers.go:473]     Accept: application/com.github.proto-openapi.spec.v2@v1.0+protobuf
+I1004 00:57:23.950784  440460 round_trippers.go:473]     User-Agent: kubectl/v1.27.3 (linux/amd64) kubernetes/25b4e43
+I1004 00:57:24.326399  440460 round_trippers.go:574] Response Status: 200 OK in 375 milliseconds
+I1004 00:57:24.326432  440460 round_trippers.go:577] Response Headers:
+I1004 00:57:24.326457  440460 round_trippers.go:580]     Accept-Ranges: bytes
+I1004 00:57:24.326467  440460 round_trippers.go:580]     X-From-Cache: 1
+I1004 00:57:24.327025  440460 round_trippers.go:580]     Audit-Id: 747bac6c-9a91-4c4e-8c83-2b103c1210e6
+I1004 00:57:24.327035  440460 round_trippers.go:580]     Content-Type: application/com.github.proto-openapi.spec.v2.v1.0+protobuf
+I1004 00:57:24.327041  440460 round_trippers.go:580]     X-Kubernetes-Pf-Prioritylevel-Uid: 191fff5f-91e1-4da2-b641-4cc86188a7da
+I1004 00:57:24.327047  440460 round_trippers.go:580]     X-Varied-Accept: application/com.github.proto-openapi.spec.v2@v1.0+protobuf
+I1004 00:57:24.327053  440460 round_trippers.go:580]     Cache-Control: no-cache, private
+I1004 00:57:24.327059  440460 round_trippers.go:580]     Date: Tue, 03 Oct 2023 15:57:24 GMT
+I1004 00:57:24.327065  440460 round_trippers.go:580]
+...
+
+
+
+$ kubectl scale replicaset <replicaset name> --replicas <amount>
+=> Scale number of pods
+
+
+$ kubectl apply -f <manifest file name for deployment> --record
+Flag --record has been deprecated, --record will be removed in the future
+deployment.apps/<deployment name> created
+=>If you use "--recoad" option deployment creates history (what command was used when it was created) and using it when "kubectl rollout".
+  the command rarely be used so it doesn't be needed in many cases.
+
+  $ kubectl get replicasets -o yaml | head
+  apiVersion: v1
+  items:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    metadata:
+      annotations:
+        deployment.kubernetes.io/desired-replicas: "3"
+        deployment.kubernetes.io/max-replicas: "4"
+        deployment.kubernetes.io/revision: "1"
+        kubernetes.io/change-cause: kubectl apply --filename=sample-deployment.yaml # the history is stored with annotation "kubernetes.io/change-cause"
+
+  $ kubectl set image deployment sample-deployment nginx-container=nginx:1.17 --record
+  Flag --record has been deprecated, --record will be removed in the future
+  deployment.apps/sample-deployment image updated
+  $ kubectl rollout status deployment
+  deployment "sample-deployment" successfully rolled out
+  =>You can see the status with the command
+  $ kubectl get replicasets
+  NAME                           DESIRED   CURRENT   READY   AGE
+  sample-deployment-66b74dff97   0         0         0       37m
+  sample-deployment-7fc4c588b8   3         3         3       3m20s
+
+$ kubectl rollout history deployment <deployment name>
+deployment.apps/<deployment name>
+REVISION  CHANGE-CAUSE
+1         kubectl apply --filename=sample-deployment.yaml --record=true
+2         kubectl set image deployment sample-deployment nginx-container=nginx:1.17 --record=true
+
+$ kubectl rollout history deployment <deployment name> --revision <revision number>
+deployment.apps/<deployment name> with revision #2
+Pod Template:
+  Labels:       app=sample-app
+        pod-template-hash=7fc4c588b8
+  Annotations:  kubernetes.io/change-cause: kubectl set image deployment <deployment name> nginx-container=nginx:1.17 --record=true
+  Containers:
+   nginx-container:
+    Image:      nginx:1.17
+    Port:       <none>
+    Host Port:  <none>
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+$ kubectl rollout undo deployment <deployment name>  --to-revision <revision number>
+deployment.apps/<deployment name> rolled back
+=>If you use no "--to-revision" option, it goes back to previous version

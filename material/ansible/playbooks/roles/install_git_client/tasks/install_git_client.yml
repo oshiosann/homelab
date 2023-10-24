@@ -1,0 +1,40 @@
+---
+- name: Install git client
+  block:
+    - name: Install package
+      ansible.builtin.dnf:
+        name: "git"
+        state: present
+      become: true
+
+    - name: Get version of git
+      ansible.builtin.command: "git -v"
+      changed_when: false
+      register: git_version
+
+    - name: Display version of git
+      ansible.builtin.debug:
+        msg: "{{ git_version }}"
+
+    - name: Register enail address
+      ansible.builtin.command: "git config --global user.email \"{{ management_email_address }}\""
+      become: true
+
+    - name: Register user name
+      ansible.builtin.command: "git config --global user.name \"{{ ansible_user }}\""
+      become: true
+
+    - name: Check current configuration
+      ansible.builtin.command: "git config -l"
+      register: check_git_conf
+      become: true
+
+    - name: Display current configuration
+      ansible.builtin.debug:
+        msg: "{{ check_git_conf }}"
+  rescue:
+    - name: Uninstall packages
+      ansible.builtin.dnf:
+        name: "git"
+        state: absent
+      become: true

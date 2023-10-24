@@ -1,0 +1,17 @@
+---
+- name: Get current taint
+  ansible.builtin.shell: "set -o pipefail ; kubectl describe node {{ inventory_hostname }} | grep Taints"
+  changed_when: false
+  register: taint_before
+
+- name: Display current taint
+  ansible.builtin.debug:
+    msg: "{{ taint_before.stdout }}"
+
+- name: Update taint to place pod on master nodes
+  ansible.builtin.shell: "kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane-"
+  register: taint_after
+
+- name: Display current taint
+  ansible.builtin.debug:
+    msg: "{{ taint_after.stdout }}"

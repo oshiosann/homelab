@@ -1,0 +1,42 @@
+---
+# servers and environment parameters
+internal_ntp_server: "192.168.10.4"
+internal_nfs_server: "192.168.10.4"
+internal_name_server: "192.168.10.1"
+
+
+# ansible parameters
+ansible_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          63336633346439343661366663643565643335333664373437343566393738333933366363373938
+          6333396235366365313333333936636662326561663566360a303263346333313065633266323931
+          33626234336130353233623262356461316639636334366266636137623531363331666334383830
+          6639373663396239350a376635393430326563393564363132363962356339306665646530616236
+          3461
+
+
+### playbook parameters
+playbook_path: "/home/ansible/playbooks"
+ansible_home_directory: "/home/ansible"
+
+
+# vm installation parameters
+isofile_path: "/ISO"
+isofile_name: "AlmaLinux-9.2-x86_64-dvd.iso"
+kvm_image_path: "/var/lib/libvirt/images"
+repo_on_ksfile:
+  name: "AppStream"
+  baseurl: "file:///run/install/sources/mount-0000-cdrom/AppStream"
+ks_ansible_pw: "$6$Mhit2xbIL.KtwuFY$nmHfExTB.hiNpgu.GIjdB1f7gV0IYKBn4/Nk6vrvuQPK083xVqSgRZfSA/V1HuHtV9DomNnlEcHbWepC13rP8/"
+ks_root_pw: "$6$oSNUjglVTUwzI.bl$Vufe6fHfY1j8QWgI7zNZkJf2MxMbPJTwnFZmy6ELjWhbZMP35LiG0L5RmftF30b9uarSEjdwTcCXEBTUQYe.j/"
+virt_install_cmd: "virt-install --connect=qemu:///system --name {{ virt_install_param.hostname }} --hvm --virt-type kvm --accelerate --arch x86_64 --disk path={{ kvm_image_path }}/{{ virt_install_param.hostname }}.qcow2,size={{ virt_install_param.vmsize }},device=disk,bus=virtio,format=qcow2 --vcpus {{ virt_install_param.vmcpu }} --memory {{ virt_install_param.vmmemory }} --network bridge=br0,model=virtio,mac={{ virt_install_param.mac_addr }} --os-variant {{ virt_install_param.osvariant }} --location {{ isofile_path }}/{{ isofile_name }} --initrd-inject /ISO/{{ virt_install_param.hostname }}.ks --noautoconsole --extra-args \"inst.ks=file:/{{ virt_install_param.hostname }}.ks console=tty0 console=ttyS0,115200n8\""
+
+
+### docker vars
+# <docker package name>-<version>
+docker_packages: 
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin

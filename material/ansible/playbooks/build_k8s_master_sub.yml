@@ -1,0 +1,56 @@
+---
+- hosts: k8s_master_sub
+  environment:
+    KUBECONFIG: "/home/ansible/.kube/config"
+  tasks:
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: Include role disable_ipv6
+      ansible.builtin.include_role:
+        name: disable_ipv6
+
+    - name: Include role firewall_setup
+      ansible.builtin.include_role:
+        name: firewall_setup
+
+    - name: Include role ssh_setup
+      ansible.builtin.include_role:
+        name: ssh_setup
+
+    - name: Include role ntp_client_setup
+      ansible.builtin.include_role:
+        name: ntp_client_setup
+
+    - name: Include role nfs_client_setup
+      ansible.builtin.include_role:
+        name: nfs_client_setup
+
+    - name: Include role disable_swap
+      ansible.builtin.include_role:
+        name: disable_swap
+
+    - name: Include role k8s_general_setup
+      ansible.builtin.include_role:
+        name: k8s_general_setup
+
+    - name: Include role k8s_install_containerd
+      ansible.builtin.include_role:
+        name: k8s_install_containerd
+
+    - name: Include role create_hosts_file
+      ansible.builtin.include_role:
+        name: create_hosts_file
+
+    - name: Include role k8s_join_cluster
+      ansible.builtin.include_role:
+        name: k8s_join_cluster
+
+    - name: Include role k8s_master_taint
+      ansible.builtin.include_role:
+        name: k8s_master_taint

@@ -1,0 +1,12 @@
+---
+- name: Include k8s_module_setup.yml
+  ansible.builtin.include_tasks: k8s_module_setup.yml
+  when: inventory_hostname in groups['kubernetes']
+
+- name: Include install_k8s_packages.yml
+  ansible.builtin.include_tasks: install_k8s_packages.yml
+  when: inventory_hostname in groups['kubernetes']
+
+- name: Include deploy_kube_vip.yml
+  ansible.builtin.include_tasks: deploy_kube_vip.yml
+  when: inventory_hostname in groups['k8s_master']

@@ -1,0 +1,65 @@
+---
+- name: Check swap
+  ansible.builtin.command: "swapon -v"
+  changed_when: false
+  register: check_swap
+
+- name: Disable swap
+  block:
+    - name: Disable swap 1/2
+      ansible.builtin.command: "swapoff -a"
+      become: true
+
+    - name: Check swap (after)
+      ansible.builtin.command: "free -h"
+      changed_when: false
+      register: check_swap_after
+
+    - name: Echo output of free command (after)
+      ansible.builtin.debug:
+        msg: "{{ check_swap_after }}"
+
+    - name: Get /etc/fstab
+      ansible.builtin.command: "cat /etc/fstab"
+      changed_when: false
+      register: check_fstab_swap
+
+    - name: Display /etc/fstab
+      ansible.builtin.debug:
+        msg: "{{ check_fstab_swap }}"
+
+    - name: Disable SWAP in fstab 2/2
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: ([^\s]+\s+swap\s+.*)
+        replace: '# \1'
+      become: true
+
+    - name: Get /etc/fstab (after)
+      ansible.builtin.command: "cat /etc/fstab"
+      changed_when: false
+      register: check_fstab_swap_after
+
+    - name: Display /etc/fstab (after)
+      ansible.builtin.debug:
+        msg: "{{ check_fstab_swap_after }}"
+  when: check_swap.stdout != ''
+  rescue:
+    - name: Re-enable swap in fstab 1/2
+      ansible.builtin.copy:
+        content: "{{ check_fstab_swap.stdout }}"
+        dest: /etc/fstab
+      become: true
+
+    - name: Re-nable swap 2/2
+      ansible.builtin.command: "swapon -a"
+      become: true
+
+    - name: Get /etc/fstabi (rescue)
+      ansible.builtin.command: "cat /etc/fstab"
+      changed_when: false
+      register: check_fstab_swap_rescue
+
+    - name: Display /etc/fstab (rescue)
+      ansible.builtin.debug:
+        msg: "{{ check_fstab_swap_rescue }}"

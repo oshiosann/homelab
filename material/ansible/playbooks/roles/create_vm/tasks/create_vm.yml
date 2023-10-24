@@ -1,0 +1,74 @@
+---
+# iso file should be placed when kvm host is created so there is no task to check it
+- name: Check the existing server you are going to create
+  ansible.builtin.command: "virsh list --all"
+  changed_when: false
+  become: true
+  register: check_vm
+
+- name: Display vm list
+  ansible.builtin.debug:
+    msg: "{{ check_vm.stdout_lines }}"
+
+- name: Display terminate message and stop task
+  ansible.builtin.fail:
+    msg: "The server you are going to create already defined."
+  when: virt_install_param.hostname in check_vm.stdout
+
+- name: Create vm
+  block:
+    - name: Put kickstart file
+      ansible.builtin.template:
+        src: ks.j2
+        dest: "{{ isofile_path }}/{{ virt_install_param.hostname }}.ks"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+    - name: Slurp placed kickstart file
+      ansible.builtin.slurp:
+        path: "{{ isofile_path }}/{{ virt_install_param.hostname }}.ks"
+      register: slurp_ksfile
+
+    - name: Echo content of kickstart file
+      ansible.builtin.debug:
+        msg: "{{ slurp_ksfile.content | b64decode }}"
+
+    - name: Create vm
+      ansible.builtin.command: "{{ virt_install_cmd }}"
+      async: 60
+      poll: 30
+      changed_when: false
+      become: true
+
+    - name: Get created vm status
+      ansible.builtin.command: "virsh domstate {{ virt_install_param.hostname }}"
+      failed_when: false
+      changed_when: false
+      register: check_domstate
+      until: check_domstate.stdout == "shut off"
+      retries: 20
+      delay: 60
+      become: true
+
+    - name: Start vm if the status is shut off
+      ansible.builtin.command: "virsh start {{ virt_install_param.hostname }}"
+      changed_when: false
+      failed_when: false
+      become: true
+
+    - name: Wait for the connection
+      ansible.builtin.wait_for:
+        host: "{{ virt_install_param.ip_addr }}"
+        port: 22
+        state: started
+        delay: 10
+        timeout: 300
+  when: virt_install_param.hostname not in check_vm.stdout
+  rescue:
+    - name: Delete kickstart file
+      ansible.builtin.file:
+        path: "{{ isofile_path }}/{{ virt_install_param.hostname }}.ks"
+        state: absent
+      become: true

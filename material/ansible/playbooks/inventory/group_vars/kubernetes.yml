@@ -1,0 +1,35 @@
+---
+### information of kubernetes
+kubernetes_version: 1.27.3
+kubernetes_repository:
+  baseurl: "https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64"
+  gpgkey: "https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg"
+pod_network:
+  network: "10.244.0.0"
+  cidr: "16"
+
+kube_vip:
+  vip_addr: "192.168.10.22"
+  port: "6443"
+  version: "v0.6.0"
+  interface: "enp1s0"
+  cidr: "32"
+
+### /etc/hosts parameter for Kubernetes nodes
+k8s_etc_hosts:
+  - "{{ host_parameters.master001v.ip_addr }} {{ host_parameters.master001v.hostname }}"
+  - "{{ host_parameters.master002v.ip_addr }} {{ host_parameters.master002v.hostname }}"
+  - "{{ host_parameters.master003v.ip_addr }} {{ host_parameters.master003v.hostname }}"
+  - "{{ host_parameters.worker001v.ip_addr }} {{ host_parameters.worker001v.hostname }}"
+  - "{{ host_parameters.worker002v.ip_addr }} {{ host_parameters.worker002v.hostname }}"
+
+### name of cni plugins material
+k8s_cni_plugins: "cni-plugins-linux-amd64-v1.3.0.tgz"
+
+### list of kubernetes manifest file
+k8s_manifestfiles_path:
+  - "{{ ansible_home_directory }}/manifestfiles"
+k8s_flannel_manifestfile:
+  - { name: "kube-flannel.yml", dest: "{{ ansible_home_directory }}/manifestfiles" }
+#k8s_manifestfiles:
+#  - { name: "TBD", dest: "{{ ansible_home_directory }}/manifestfiles" }

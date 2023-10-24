@@ -1,0 +1,83 @@
+---
+- name: Setup nfs client
+  block:
+    - name: Install nfs-utils
+      ansible.builtin.dnf:
+        name: nfs-utils
+        state: present
+      become: true
+
+    - name: Slurp /etc/fstab
+      ansible.builtin.slurp:
+        path: /etc/fstab
+      register: slurp_fstab
+
+    - name: Echo content of /etc/fstab
+      ansible.builtin.debug:
+        msg: "{{ slurp_fstab.content | b64decode }}"
+
+    - name: Backup /etc/fstab
+      ansible.builtin.copy:
+        src: /etc/fstab
+        dest: /etc/fstab_org
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+        force: false
+      become: true
+
+    - name: Mount NFS share directory
+      ansible.posix.mount:
+        src: "{{ internal_nfs_server }}:/mnt/share"
+        path: /mnt
+        opts: vers=3,defaults
+        state: mounted
+        fstype: nfs
+      become: true
+
+    - name: Slurp /etc/fstab (after)
+      ansible.builtin.slurp:
+        path: /etc/fstab
+      register: slurp_fstab_after
+
+    - name: Echo content of /etc/fstab (after)
+      ansible.builtin.debug:
+        msg: "{{ slurp_fstab_after.content | b64decode }}"
+
+    - name: Get output of df command
+      ansible.builtin.command: "df -h"
+      changed_when: false
+      register: check_df
+
+    - name: Display output of df command
+      ansible.builtin.debug:
+        msg: "{{ check_df }}"
+      when: check_df is succeeded
+
+    - name: Get shared directories on /mnt
+      ansible.builtin.command: "ls -l /mnt"
+      changed_when: false
+      register: shared_dir
+
+    - name: Display shared directories on /mnt
+      ansible.builtin.debug:
+        msg: "{{ shared_dir }}"
+      when: shared_dir is succeeded
+  rescue:
+    - name: Unmount NFS share directory
+      ansible.posix.mount:
+        path: /mnt
+        state: unmounted
+      become: true
+
+    - name: Restore /etc/fstab
+      ansible.builtin.copy:
+        src: /etc/fstab_org
+        dest: /etc/fstab
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+        force: true
+      become: true

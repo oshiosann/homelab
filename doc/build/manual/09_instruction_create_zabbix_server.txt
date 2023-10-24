@@ -1,0 +1,802 @@
+■Description
+  This Document is for building Zabbix Server and making configure related settings.
+
+
+■Prerequisite
+  1.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  2.Please replace the information depending on the environment(e.g, IP address) with the actual information
+
+  <Software information>
+    ・ansible
+      ansible-7.2.0-1.el9.noarch
+      ansible-core-2.14.2-4.el9.x86_64
+      git-core-2.39.3-1.el9_2.x86_64
+      libnsl2-2.0.0-1.el9.x86_64
+      mpdecimal-2.5.1-3.el9.x86_64
+      python3.11-3.11.2-2.el9.x86_64
+      python3.11-cffi-1.15.1-1.el9.x86_64
+      python3.11-cryptography-37.0.2-5.el9.x86_64
+      python3.11-libs-3.11.2-2.el9.x86_64
+      python3.11-pip-wheel-22.3.1-2.el9.noarch
+      python3.11-ply-3.11-1.el9.noarch
+      python3.11-pycparser-2.20-1.el9.noarch
+      python3.11-pyyaml-6.0-1.el9.x86_64
+      python3.11-setuptools-wheel-65.5.1-2.el9.noarch
+      python3.11-six-1.16.0-1.el9.noarch
+      sshpass-1.09-4.el9.x86_64
+      python3-pip-21.2.3-6.el9.noarch
+      python3-setuptools-53.0.0-12.el9.noarch
+    ・ansible-lint 6.17.0
+    ・Ruby
+      ruby-3.0.4-160.el9_0.x86_64
+      ruby-default-gems-3.0.4-160.el9_0.noarch
+      ruby-libs-3.0.4-160.el9_0.x86_64
+      rubygem-bigdecimal-3.0.0-160.el9_0.x86_64
+      rubygem-bundler-2.2.33-160.el9_0.noarch
+      rubygem-io-console-0.5.7-160.el9_0.x86_64
+      rubygem-json-2.5.1-160.el9_0.x86_64
+      rubygem-psych-3.3.2-160.el9_0.x86_64
+      rubygem-rdoc-6.3.3-160.el9_0.noarch
+      rubygems-3.2.33-160.el9_0.noarch
+    ・serverspec 2.42.2
+    ・git 2.39.3
+
+■Work Procedure
+  1.Create base VM
+    Read Document "instruction_create_vm"
+
+    Before move next step, boot VM by running commands below
+
+    # virsh list --all
+    =>Check the VM is not running
+             Id   Name           State
+      -------------------------------
+       44   dev-zbx001v   shut off
+       45   dev-zbx002v   shut off
+    # virsh start <VM name>
+    # virsh list --all
+    =>Check if the status of VM was changed
+       Id   Name           State
+      -------------------------------
+       44   dev-zbx001v   running
+       45   dev-zbx002v   running
+  2.Basic settings
+    2-1.Disable Wi-Fi function
+        # nmcli radio wifi
+        =>Check current settings
+        # nmcli radio wifi off
+        # nmcli radio wifi
+        # nmcli c s
+        =>Check that the settings have been applied
+
+    2-2.Disable IPv6
+        # nmcli con mod "<name>" ipv6.method disabled
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # ip a |grep inet6
+        # ip a
+        =>Check that the settings have been applied
+          Ipv6 address of <name> Network interface should be disappeard
+        # cat /proc/sys/net/ipv6/conf/<name>/disable_ipv6
+        =>Check if the value is "1"
+
+    2-3.Basic Firewall settings
+        # systemctl status firewalld
+        =>Check if "Active status" is "inactive (dead)"
+        # systemctl start firewalld
+        =>Execute this command If "Active status" is "inactive (dead)"
+        # firewall-cmd --list-all
+        =>Check if the content is the same as below
+          public (active)
+            target: default
+            icmp-block-inversion: no
+            interfaces: <name>
+            sources:
+            services: cockpit dhcpv6-client ssh
+            ports:
+            protocols:
+            forward: yes
+            masquerade: no
+            forward-ports:
+            source-ports:
+            icmp-blocks:
+            rich rules:
+        # systemctl enable firewalld
+        # systemctl is-enabled firewalld
+        =>Check if it is "enabled"
+
+        These tasks are for stopping and disabling firewalld.(Skip them)
+        # systemctl status firewalld
+        =>Check if "Active status" is "active (running)"
+        # systemctl --now disable firewalld
+        # systemctl status firewalld
+        =>Check that the status changed "Active: inactive (dead)"
+
+    2-4.ssh settings
+        # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+        # ls -l /etc/ssh/sshd_config*
+        # vi /etc/ssh/sshd_config
+        =>Modify conf file like below
+          #PermitRootLogin no
+          =>Modify prohibit-password to no
+        # systemctl restart sshd && sudo systemctl enable sshd
+        # systemctl status sshd
+        # systemctl is-enabled sshd
+        =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+          Do login test
+
+    2-5.NTP settings
+        # systemctl status chronyd
+        # cp -p  /etc/chrony.conf /etc/chrony.conf_org
+        # ls -l /etc/chrony.conf*
+        # vi /etc/chrony.conf
+        =>Modify conf file like below
+          pool 192.168.10.4 iburst
+        # systemctl restart chronyd && systemctl enable chronyd
+        # systemctl status chronyd
+        =>Check if there are any errors and enabled
+        # chronyc sources
+        =>Check if chrony syncs with specified IP address and the status changed "Active: active (running)"
+
+    2-6.NFS client Settings
+        See instruction for NSP client
+
+  3.Install Zabbix Server
+    # firewall-cmd --list-all
+    =>Check current settings before work
+    # firewall-cmd --zone=public --add-port={80/tcp,443/tcp,3306/tcp,10051/tcp} --permanent
+    # firewall-cmd --reload
+    # firewall-cmd --list-all
+    # dnf install -y mysql-server
+    # systemctl enable --now mysqld
+    # systemctl status mysqld
+    # /usr/bin/mysql_secure_installation
+
+    Securing the MySQL server deployment.
+
+    Connecting to MySQL using a blank password.
+
+    VALIDATE PASSWORD COMPONENT can be used to test passwords
+    and improve security. It checks the strength of password
+    and allows the users to set only those passwords which are
+    secure enough. Would you like to setup VALIDATE PASSWORD component?
+
+    Press y|Y for Yes, any other key for No: y
+    =>Enter "y"
+
+    There are three levels of password validation policy:
+
+    LOW    Length >= 8
+    MEDIUM Length >= 8, numeric, mixed case, and special characters
+    STRONG Length >= 8, numeric, mixed case, special characters and dictionary file
+
+    Please enter 0 = LOW, 1 = MEDIUM and 2 = STRONG: 0
+    =>Enter "0" for this environment
+    Please set the password for root here.
+
+    New password:
+    =>Enter root password twice
+    Re-enter new password:
+
+    Estimated strength of the password: 50
+    Do you wish to continue with the password provided?(Press y|Y for Yes, any other key for No) : y
+    =>Enter "y"
+    By default, a MySQL installation has an anonymous user,
+    allowing anyone to log into MySQL without having to have
+    a user account created for them. This is intended only for
+    testing, and to make the installation go a bit smoother.
+    You should remove them before moving into a production
+    environment.
+
+    Remove anonymous users? (Press y|Y for Yes, any other key for No) : y
+    =>Enter "y"
+    Success.
+
+
+    Normally, root should only be allowed to connect from
+    'localhost'. This ensures that someone cannot guess at
+    the root password from the network.
+
+    Disallow root login remotely? (Press y|Y for Yes, any other key for No) : y
+    =>Enter "y"
+    Success.
+
+    By default, MySQL comes with a database named 'test' that
+    anyone can access. This is also intended only for testing,
+    and should be removed before moving into a production
+    environment.
+
+
+    Remove test database and access to it? (Press y|Y for Yes, any other key for No) : y
+    =>Enter "y"
+     - Dropping test database...
+    Success.
+
+     - Removing privileges on test database...
+    Success.
+
+    Reloading the privilege tables will ensure that all changes
+    made so far will take effect immediately.
+
+    Reload privilege tables now? (Press y|Y for Yes, any other key for No) : y
+    =>Enter "y"
+    Success.
+
+    All done!
+    # dnf install -y epel-release
+    # vi /etc/yum.repos.d/epel.repo
+    =>Edit it like below
+    [epel]
+    ...
+    excludepkgs=zabbix*
+    # rpm -Uvh https://repo.zabbix.com/zabbix/6.0/rhel/9/x86_64/zabbix-release-6.0-4.el9.noarch.rpm
+    # dnf clean all
+    # dnf install -y zabbix-server-mysql zabbix-web-mysql zabbix-apache-conf zabbix-sql-scripts zabbix-selinux-policy zabbix-get
+
+    <run on Zabbix server 1>
+      # mysql -uroot -p
+      Enter password: <password of DB root user>
+      mysql> create database zabbix character set utf8mb4 collate utf8mb4_bin;
+#      mysql> create user zabbix@localhost identified by '<password>';
+      mysql> create user zabbix@localhost identified with mysql_native_password by '<password>';
+      mysql> grant all privileges on zabbix.* to zabbix@localhost;
+      mysql> set global log_bin_trust_function_creators = 1;
+      mysql> quit;
+      # zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uzabbix -p zabbix
+      # mysql -uroot -p
+      Enter password: <password of DB root user>
+      mysql> set global log_bin_trust_function_creators = 0;
+      mysql> quit;
+
+    # vi /etc/zabbix/zabbix_server.conf
+    DBPassword=<password>
+    DBHost=localhost
+    =>No need to modify
+    DBName=zabbix
+    =>No need to modify
+    DBUser=zabbix
+    =>No need to modify
+    # systemctl restart zabbix-server httpd php-fpm
+    # systemctl enable zabbix-server httpd php-fpm
+    # exit
+
+    http://<IP address of Zabbix Server>/zabbix
+    =>Access Zabbix server
+    Reference: https://www.zabbix.com/download?zabbix=6.0&os_distribution=alma_linux&os_version=9&components=server_frontend_agent&db=pgsql&ws=apache
+
+    Default language "English(en_US)"
+    =>No need to change, move to "Next step"
+    Check of pre-requisites
+    =>Check if all "OK" are shown, move to "Next step"
+    Configure DB connection
+    =>Type "<Password of zabbix user on DB>", move to Next "step"
+    Settings
+    =>Type hostname of Zabbix server and change timezone into Asia/Tokyo, move to Next "step"
+    Pre-installation summary
+    =>move to Next "step"
+    Install
+    =>Select "Finish"
+    Login with "Admin" user with initial password "zabbix"
+
+    Configuration => Create host =>
+    Host name
+    =>Add hostname of agent
+    Template
+    =>Select template(Created in advamce)
+    Groups
+    =>Select template(Created in advamce)
+    Interfaces => agent
+    =>Add IP address of agent
+    Select "Add"
+
+    Disable initial host of "Zabbix server" on GUI
+    =>Configuration => Hosts => Check on Check box of "Zabbix server" => Select "Disable" => OK
+      After that Check if it is now disabled
+
+
+  4.Install Zabbix Agent
+    # vi /etc/hosts
+    =>Add IP address and hostname of Zabbix server
+    <IP address> <hostname>
+    <IP address> <hostname>
+    # vi /etc/yum.repos.d/epel.repo
+    =>Edit it like below
+    [epel]
+    ...
+    excludepkgs=zabbix*
+    # rpm -Uvh https://repo.zabbix.com/zabbix/6.0/rhel/9/x86_64/zabbix-release-6.0-4.el9.noarch.rpm
+    # dnf clean all
+    # dnf install -y zabbix-agent
+    # vi /usr/lib/systemd/system/zabbix-agent.service
+    [Service]
+    User=root
+    Group=root
+    =>It makes agent run as root
+    # ls -l /usr/lib/systemd/system/zabbix-agent.service
+    -rw-r--r-- 1 root root 434 Aug 25 18:40 /usr/lib/systemd/system/zabbix-agent.service
+    # systemctl daemon-reload
+    # vi /etc/zabbix/zabbix_agentd.conf
+    RefreshActiveChecks=120
+    AllowKey=system.run[*]
+    =>Add the line
+    Server=<VIP address of Zabbix server>,<IP address of Zabbix server1>,<IP address of Zabbix server2>
+    ServerActive=<VIP address of Zabbix server>
+    Hostname=<hostname>
+    =>Enter hostname
+    User=root
+    AllowRoot=1
+    # systemctl restart zabbix-agent
+    # systemctl enable zabbix-agent
+    # firewall-cmd --list-all
+    =>Check current settings before work
+    # firewall-cmd --zone=public --add-port=10050/tcp --permanent
+    # firewall-cmd --reload
+    # firewall-cmd --list-all
+    public (active)
+      target: default
+      icmp-block-inversion: no
+      interfaces: enp1s0
+      sources:
+      services: cockpit dhcpv6-client ssh
+      ports: 10050/tcp
+      protocols:
+      forward: yes
+      masquerade: no
+      forward-ports:
+      source-ports:
+      icmp-blocks:
+      rich rules:
+    # ps -aux |grep zabbix-agent
+    root       18854  0.0  0.0   6408  2196 pts/0    S+   19:00   0:00 grep --color=auto zabbix-agent
+    =>Check if zabbix-agent runs as root
+
+    # zabbix_get -s <IP address of Zabbix agent> -k "system.run[chronyc tracking]"
+    => run the command on Zabbix server
+      Reference ID    : 85F3EEF3 (ntp-a2.nict.go.jp)
+      Stratum         : 2
+      Ref time (UTC)  : Fri Aug 25 10:52:41 2023
+      System time     : 0.000035553 seconds fast of NTP time
+      Last offset     : -0.000017348 seconds
+      RMS offset      : 0.000299496 seconds
+      Frequency       : 15.406 ppm slow
+      Residual freq   : -0.000 ppm
+      Skew            : 0.016 ppm
+      Root delay      : 0.005678744 seconds
+      Root dispersion : 0.000194734 seconds
+      Update interval : 1026.8 seconds
+      Leap status     : Normal
+
+
+  5.Install Pacemaker and create cluster
+    <run on Both Zabbix servers>
+      # firewall-cmd --list-all
+      =>Check current settings before work
+      # firewall-cmd --zone=public --add-port={2224/tcp,3121/tcp,21064/tcp,5405/udp} --permanent
+      =>21064/tcp might not be necessary
+      # firewall-cmd --reload
+      # firewall-cmd --list-all
+      # dnf config-manager --set-enabled highavailability
+      =>Not ha repo Ref: https://wiki.almalinux.org/repos/AlmaLinux.html
+      # dnf repolist --all | grep highavailability
+      # dnf -y install pacemaker corosync pcs
+      # systemctl enable --now pcsd
+      # passwd hacluster
+      =>Enter new hacluster password twice
+      # mysql -uroot -p
+      Enter password: <password of DB root user>
+#      mysql> create user 'repl'@'%' identified by '<Password>';
+#      mysql> create user 'repl'@'localhost' identified by '<Password>';
+      mysql> create user 'repl'@'%' identified with mysql_native_password by '<Password>';
+      mysql> create user 'repl'@'localhost' identified with mysql_native_password by '<Password>';
+
+
+      mysql> grant replication slave on *.* to 'repl'@'%';
+      mysql> grant process, super, replication slave, replication client, reload on *.* to 'repl'@'localhost';
+#      mysql> grant process, super, replication slave, replication client, reload on *.* to 'repl'@'%';
+      mysql> flush privileges;
+      mysql> quit;
+
+    <run on Zabbix server 1>
+      # vi /etc/my.cnf
+      =>Add these lines
+      [mysqld]
+      log-bin=mysql-bin
+      server-id=1
+#      replication_user=repl
+#      replication_passwd=<Password of repl user>
+#      ssl-ca=/var/lib/mysql/ca.pem
+#      ssl-cert=/var/lib/mysql/server-cert.pem
+#      ssl-key=/var/lib/mysql/server-key.pem
+#      tls_version=TLSv1.3
+#      ssl_cipher=TLS_AES_256_GCM_SHA384
+
+    <run on Zabbix server 2>
+      # vi /etc/my.cnf
+      =>Add these lines
+      [mysqld]
+      log-bin=mysql-bin
+      server-id=2
+#      replication_user=repl
+#      replication_passwd=<Password of repl user>
+#      ssl-ca=/var/lib/mysql/ca.pem
+#      ssl-cert=/var/lib/mysql/server-cert.pem
+#      ssl-key=/var/lib/mysql/server-key.pem
+#      tls_version=TLSv1.3
+#      ssl_cipher=TLS_AES_256_GCM_SHA384
+
+      # systemctl stop mysqld
+      # rm -rf /var/lib/mysql
+      =>To migrate zabbix 1's db
+
+    <run on Zabbix server 1>
+      # systemctl stop mysqld
+      # tar zcvf /var/tmp/dbbackup.tar.gz -C /var/lib mysql
+      # scp /var/tmp/dbbackup.tar.gz ansible@<IP address of Zabbix server 2>:/var/tmp
+      # rm -f /tmp/dbbackup.tar.gz
+
+    <run on Zabbix server 2>
+      # tar zxvf /var/tmp/dbbackup.tar.gz -C /var/lib
+      # ls -l /var/lib/mysql
+      # rm -f /tmp/dbbackup.tar.gz
+
+    <run on Both Zabbix servers>
+      # systemctl stop php-fpm
+      # systemctl stop httpd
+      # systemctl stop zabbix-server
+      # systemctl stop mysqld
+      # systemctl disable php-fpm
+      # systemctl disable httpd
+      # systemctl disable zabbix-server
+      # systemctl disable mysqld
+
+    <run on Zabbix server 1>
+      # pcs host auth -u hacluster -p <Password of hacluster user> <hostname of Zabbix server 1> <hostname of Zabbix server 2>
+      <hostname of Zabbix server 1>: Authorized
+      <hostname of Zabbix server 2>: Authorized
+      # pcs cluster setup zabbix-cluster <hostname of Zabbix server 1> <hostname of Zabbix server 2>
+      Cluster has been successfully set up.
+      # pcs cluster start --all
+      <hostname of Zabbix server 2>: Starting Cluster...
+      <hostname of Zabbix server 1>: Starting Cluster...
+      # pcs cluster enable --all
+      # corosync-cfgtool -s
+      =>Check if there is no error
+      Local node ID 1, transport knet
+      LINK ID 0 udp
+              addr    = <IP address of Zabbix server 1>
+              status:
+                      nodeid:          1:     localhost
+                      nodeid:          2:     connected
+      # corosync-cmapctl | grep members
+      runtime.members.1.config_version (u64) = 0
+      runtime.members.1.ip (str) = r(0) ip(<IP address of Zabbix server 1>)
+      runtime.members.1.join_count (u32) = 1
+      runtime.members.1.status (str) = joined
+      runtime.members.2.config_version (u64) = 0
+      runtime.members.2.ip (str) = r(0) ip(<IP address of Zabbix server 2>)
+      runtime.members.2.join_count (u32) = 1
+      runtime.members.2.status (str) = joined
+      # pcs status corosync
+
+      Membership information
+      ----------------------
+          Nodeid      Votes Name
+               1          1 <hostname of Zabbix server 1> (local)
+               2          1 <hostname of Zabbix server 2>
+
+      By here corosync is functional.
+
+      # ps -axf
+      =>Check these proccesses are running
+      ...
+         2189 ?        SLsl   0:11 /usr/sbin/corosync -f
+         2201 ?        Ss     0:00 /usr/sbin/pacemakerd
+         2202 ?        Ss     0:00  \_ /usr/libexec/pacemaker/pacemaker-based
+         2203 ?        Ss     0:00  \_ /usr/libexec/pacemaker/pacemaker-fenced
+         2204 ?        Ss     0:00  \_ /usr/libexec/pacemaker/pacemaker-execd
+         2205 ?        Ss     0:00  \_ /usr/libexec/pacemaker/pacemaker-attrd
+         2206 ?        Ss     0:00  \_ /usr/libexec/pacemaker/pacemaker-schedulerd
+         2207 ?        Ss     0:00  \_ /usr/libexec/pacemaker/pacemaker-controld
+      # pcs status
+      Cluster name: zabbix-cluster
+
+      WARNINGS:
+      No stonith devices and stonith-enabled is not false
+
+      Status of pacemakerd: 'Pacemaker is running' (last updated 2023-08-31 22:18:12 +09:00)
+      Cluster Summary:
+        * Stack: corosync
+        * Current DC: <hostname of Zabbix server 2> (version 2.1.5-9.el9_2-a3f44794f94) - partition with quorum
+        * Last updated: Thu Aug 31 22:18:13 2023
+        * Last change:  Thu Aug 31 21:59:04 2023 by hacluster via crmd on dev-zbx002v
+        * 2 nodes configured
+        * 0 resource instances configured
+
+      Node List:
+        * Online: [ <hostname of Zabbix server 1> <hostname of Zabbix server 2> ]
+
+      Full List of Resources:
+        * No resources
+
+      Daemon Status:
+        corosync: active/disabled
+        pacemaker: active/disabled
+        pcsd: active/enabled
+      =>Check if there are 2 Zabbix servers on a cluster
+      # journalctl -b | grep -i error
+      =>Check if there is error
+      # pcs cluster verify --full
+      =>It's OK that there is a error
+      Error: invalid cib:
+      (unpack_resources)      error: Resource start-up disabled since no STONITH resources have been defined
+      (unpack_resources)      error: Either configure some or disable STONITH with the stonith-enabled option
+      (unpack_resources)      error: NOTE: Clusters with shared data need STONITH to ensure data integrity
+      crm_verify: Errors found during check: config not valid
+
+      Error: Errors have occurred, therefore pcs is unable to continue
+      # pcs property set stonith-enabled=false
+      # pcs cluster verify --full
+      =>No output is displayed
+      # pcs property set no-quorum-policy=ignore
+      # pcs resource defaults resource-stickiness=INFINITY
+      =>It's OK to ignore the warning
+      # pcs resource defaults migration-threshold=1
+      =>It's OK to ignore the warning. For continuing to do failover many time with no pcs resource cleanup, change the value from "1" to "0".
+      # pcs node standby <hostname of Zabbix server 2>
+      # pcs status
+      =>Check if the node went standby
+
+      # pcs resource create mysqld \
+      > ocf:heartbeat:mysql \
+      > binary=/usr/sbin/mysqld \
+      > config=/etc/my.cnf \
+      > datadir=/var/lib/mysql \
+      > log=/var/log/mysql/mysqld.log \
+      > pid=/run/mysqld/mysqld.pid \
+#      > replication_user=repl \
+#      > replication_passwd=<Password of repl user> \
+      > socket=/var/lib/mysql/mysql.sock \
+      > op monitor interval=29s \
+      > role=Promoted monitor interval=31s role=Unpromoted
+      # pcs resource promotable mysqld promoted-max=1 promoted-node-max=1 clone-max=2 clone-node-max=1 notify=true
+      =>mysqld resource doesn't start for now
+
+      # pcs constraint location mysqld-clone prefers <hostname of Zabbix server 1>=100
+      # pcs resource create zabbix-server systemd:zabbix-server op monitor interval=10s timeout=20s
+
+    <run on Both Zabbix servers>
+      # vi /etc/httpd/conf.d/status.conf
+      =>Create the file
+      <Location /server-status>
+          SetHandler server-status
+          Require local
+      </Location>
+
+    <run on Zabbix server 1>
+      # pcs resource create apache \
+      > ocf:heartbeat:apache \
+      > configfile=/etc/httpd/conf/httpd.conf \
+      > statusurl="http://localhost/server-status" \
+      > op monitor interval=10s timeout=10s
+
+      # pcs resource create php-fpm systemd:php-fpm op monitor interval=10s timeout=10s
+      # pcs resource create vip \
+      > ocf:heartbeat:IPaddr2 \
+      > ip=<IP address of VIP> \
+      > cidr_netmask=24 \
+      > nic=<Name of NIC> \
+      > op monitor interval=10s timeout=10s
+
+      Reference: https://access.redhat.com/documentation/ja-jp/red_hat_enterprise_linux/7/html/high_availability_add-on_reference/s1-orderconstraints-haar
+
+#      # pcs resource group add zabbix-group apache php-fpm zabbix-server vip
+#      # pcs constraint order promote mysqld-clone then start zabbix-group
+#      =>Promoting Slave resourse (mysqld-clone) to Master resource then start zabbix-group
+#      # pcs constraint colocation add zabbix-group with Promoted mysqld-clone INFINITY
+#      # pcs constraint colocation add Promoted mysqld-clone with zabbix-server INFINITY
+#      # pcs constraint colocation add Promoted mysqld-clone with apache INFINITY
+#      # pcs constraint colocation add Promoted mysqld-clone with php-fpm INFINITY
+#      # pcs constraint colocation add Promoted mysqld-clone with vip INFINITY
+
+
+      # pcs resource group add zabbix-group apache php-fpm zabbix-server vip
+      # pcs constraint order promote mysqld-clone then start zabbix-group
+      =>Promoting Slave resourse (mysqld-clone) to Master resource then start zabbix-group
+      # pcs constraint colocation add zabbix-group with Promoted mysqld-clone INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with zabbix-server INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with apache INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with php-fpm INFINITY
+      # pcs constraint colocation add Promoted mysqld-clone with vip INFINITY
+
+
+      # pcs node unstandby <hostname of Zabbix server 2>
+
+      # pcs status
+      =>Check if there are some errors
+      # pcs resource status
+      # pcs resource config
+      # pcs constraint config
+      # pcs constraint list --full
+      =>To check constraint ID
+
+      <Run both zabbix servers>
+      # mysql -uroot -p
+      Enter password: <password of DB root user>
+      mysql> SHOW REPLICA STATUS\G
+      =>Check if there are errors
+        Reference: https://dev.mysql.com/doc/refman/8.0/ja/replication-administration-status.html
+      *************************** 1. row ***************************
+                   Replica_IO_State: Waiting for source to send event # Check it has this message
+                        Source_Host: dev-zbx001v
+                        Source_User: repl
+                        Source_Port: 3306
+                      Connect_Retry: 60
+                    Source_Log_File: mysql-bin.000026
+                Read_Source_Log_Pos: 294067
+                     Relay_Log_File: dev-zbx002v-relay-bin.000013
+                      Relay_Log_Pos: 294283
+              Relay_Source_Log_File: mysql-bin.000026
+                 Replica_IO_Running: Yes # Check if it is Yes
+                Replica_SQL_Running: Yes # Check if it is Yes
+                    Replicate_Do_DB:
+                Replicate_Ignore_DB:
+                 Replicate_Do_Table:
+             Replicate_Ignore_Table:
+            Replicate_Wild_Do_Table:
+        Replicate_Wild_Ignore_Table:
+                         Last_Errno: 0
+                         Last_Error:
+                       Skip_Counter: 0
+                Exec_Source_Log_Pos: 294067
+                    Relay_Log_Space: 295579
+                    Until_Condition: None
+                     Until_Log_File:
+                      Until_Log_Pos: 0
+                 Source_SSL_Allowed: No
+                 Source_SSL_CA_File:
+                 Source_SSL_CA_Path:
+                    Source_SSL_Cert:
+                  Source_SSL_Cipher:
+                     Source_SSL_Key:
+              Seconds_Behind_Source: 0 # Check if it is not NULL
+      Source_SSL_Verify_Server_Cert: No
+                      Last_IO_Errno: 0 # Check if it is 0
+                      Last_IO_Error:   # Check if there is error message
+                     Last_SQL_Errno: 0 # Check if it is 0
+                     Last_SQL_Error:   # Check if there is error message
+        Replicate_Ignore_Server_Ids:
+                   Source_Server_Id: 1
+                        Source_UUID: 6a8db5bf-4d88-11ee-ab17-5254000277aa
+                   Source_Info_File: mysql.slave_master_info
+                          SQL_Delay: 0
+                SQL_Remaining_Delay: NULL
+          Replica_SQL_Running_State: Replica has read all relay log; waiting for more updates # Check if there is the message
+                 Source_Retry_Count: 86400
+                        Source_Bind:
+            Last_IO_Error_Timestamp:
+           Last_SQL_Error_Timestamp:
+                     Source_SSL_Crl:
+                 Source_SSL_Crlpath:
+                 Retrieved_Gtid_Set:
+                  Executed_Gtid_Set:
+                      Auto_Position: 0
+               Replicate_Rewrite_DB:
+                       Channel_Name:
+                 Source_TLS_Version:
+             Source_public_key_path:
+              Get_Source_public_key: 0
+                  Network_Namespace:
+      1 row in set (0.00 sec)
+
+
+
+
+    ==Reference 1==
+      You can remove resorces with these command
+      # pcs resource group remove <group name>
+      # pcs resource delete <resource name>
+      # pcs constraint remove <id>
+
+      # pcs resource restart <resource name>
+      # pcs resource cleanup
+      # pcs resource cleanup <resource name>
+
+
+      # pcs resource failcount
+      =>You can check the counts with it.
+      Failcounts for resource 'mysqld'
+        dev-zbx001v: 1
+      # pcs resource update <resource ID> <resource option>
+      =>If you want to remove an option, write "option=".
+    ===============
+
+
+    ==Reference 2==
+      Reference: https://www.asobou.co.jp/blog/web/mysql-ssl
+                 https://blog.s-style.co.jp/2018/07/2112/
+                 https://www.t3a.jp/blog/web-develop/password-simple-error/
+                 https://dev.mysql.com/doc/refman/8.0/ja/replication-administration-status.html
+
+
+#      # mysql -u root -p --ssl-ca=/var/lib/mysql/ca.pem --ssl-cert=/var/lib/mysql/client-cert.pem --ssl-key=/var/lib/mysql/client-key.pem
+#      =>Connect database with SSL as client.
+
+      mysql> SHOW REPLICA STATUS\G
+      =>Check replication status
+
+      mysql> SELECT user, host FROM mysql.user;
+
+      mysql> SELECT user,host,plugin FROM mysql.user;
+      =>Get list of user
+      +------------------+-----------+-----------------------+
+      | user             | host      | plugin                |
+      +------------------+-----------+-----------------------+
+      | repl             | %         | mysql_native_password |
+      | mysql.infoschema | localhost | caching_sha2_password |
+      | mysql.session    | localhost | caching_sha2_password |
+      | mysql.sys        | localhost | caching_sha2_password |
+      | repl             | localhost | mysql_native_password |
+      | root             | localhost | caching_sha2_password |
+      | zabbix           | localhost | mysql_native_password |
+      +------------------+-----------+-----------------------+
+      7 rows in set (0.00 sec)
+
+      mysql> SHOW GLOBAL VARIABLES LIKE '%ssl%';
+      =>Check SSL settings
+      +-------------------------------------+-----------------+
+      | Variable_name                       | Value           |
+      +-------------------------------------+-----------------+
+      | admin_ssl_ca                        |                 |
+      | admin_ssl_capath                    |                 |
+      | admin_ssl_cert                      |                 |
+      | admin_ssl_cipher                    |                 |
+      | admin_ssl_crl                       |                 |
+      | admin_ssl_crlpath                   |                 |
+      | admin_ssl_key                       |                 |
+      | have_openssl                        | YES             |
+      | have_ssl                            | YES             |
+      | mysqlx_ssl_ca                       |                 |
+      | mysqlx_ssl_capath                   |                 |
+      | mysqlx_ssl_cert                     |                 |
+      | mysqlx_ssl_cipher                   |                 |
+      | mysqlx_ssl_crl                      |                 |
+      | mysqlx_ssl_crlpath                  |                 |
+      | mysqlx_ssl_key                      |                 |
+      | performance_schema_show_processlist | OFF             |
+      | ssl_ca                              | ca.pem          |
+      | ssl_capath                          |                 |
+      | ssl_cert                            | server-cert.pem |
+      | ssl_cipher                          |                 |
+      | ssl_crl                             |                 |
+      | ssl_crlpath                         |                 |
+      | ssl_fips_mode                       | OFF             |
+      | ssl_key                             | server-key.pem  |
+      | ssl_session_cache_mode              | ON              |
+      | ssl_session_cache_timeout           | 300             |
+      +-------------------------------------+-----------------+
+      27 rows in set (0.00 sec)
+
+      mysql> \s
+      --------------
+      mysql  Ver 8.0.32 for Linux on x86_64 (Source distribution)
+
+      Connection id:          3217
+      Current database:
+      Current user:           root@localhost
+      SSL:                    Cipher in use is TLS_AES_256_GCM_SHA384 # Using SSL
+      Current pager:          stdout
+      Using outfile:          ''
+      Using delimiter:        ;
+      Server version:         8.0.32 Source distribution
+      Protocol version:       10
+      Connection:             Localhost via UNIX socket
+      Server characterset:    utf8mb4
+      Db     characterset:    utf8mb4
+      Client characterset:    utf8mb4
+      Conn.  characterset:    utf8mb4
+      UNIX socket:            /var/lib/mysql/mysql.sock
+      Binary data as:         Hexadecimal
+      Uptime:                 3 hours 1 min 39 sec
+
+      Threads: 30  Questions: 243251  Slow queries: 0  Opens: 943  Flush tables: 3  Open tables: 862  Queries per second avg: 22.318
+      --------------
+    ===============

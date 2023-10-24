@@ -1,0 +1,50 @@
+---
+- name: Install packages for ansible
+  block:
+    - name: Install packages for ansible
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - epel-release
+        - ansible
+        - python3-pip
+      become: true
+
+    - name: Install packages for ansible-lint
+      ansible.builtin.command: "pip3 install ansible-lint"
+      become: true
+
+    - name: Get installed ansible version
+      ansible.builtin.command: "ansible --version"
+      changed_when: false
+      register: check_installed_ansible
+
+    - name: Display installed ansible version
+      ansible.builtin.debug:
+        msg: "{{ check_installed_ansible }}"
+      when: check_installed_ansible is succeeded
+
+    - name: Get installed ansible-lint version
+      ansible.builtin.command: "ansible-lint --version"
+      changed_when: false
+      register: check_installed_ansible_lint
+
+    - name: Display installed ansible-lint version
+      ansible.builtin.debug:
+        msg: "{{ check_installed_ansible_lint }}"
+      when: check_installed_ansible_lint is succeeded
+  rescue:
+    - name: Uninstall packages for ansible
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - epel-release
+        - ansible
+        - python3-pip
+      become: true
+
+    - name: Install packages for ansible-lint
+      ansible.builtin.command: "pip3 uninstall --yes ansible-lint"
+      become: true

@@ -1,0 +1,109 @@
+---
+- name: Install containerd
+  block:
+    - name: Uninstall docker and related packages if already installed
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - docker
+        - docker-client
+        - docker-client-latest
+        - docker-common
+        - docker-latest
+        - docker-latest-logrotate
+        - docker-logrotate
+        - docker-engine
+      become: true
+
+    - name: Put repo file
+      ansible.builtin.template:
+        src: docker-ce.repo.j2
+        dest: /etc/yum.repos.d/docker-ce.repo
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+    - name: Install containerd
+      ansible.builtin.dnf:
+        name: containerd
+        state: present
+      become: true
+
+    - name: Create /etc/containerd directory
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Update /etc/containerd/config.toml
+      ansible.builtin.template:
+        src: config.toml.j2
+        dest: /etc/containerd/config.toml
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+    - name: Enable containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: started
+        enabled: true
+      become: true
+
+    - name: Put material of cni plugins
+      ansible.builtin.copy:
+        src: "{{ k8s_cni_plugins }}"
+        dest: /var/tmp
+        owner: ansible
+        group: ansible
+        mode: "0644"
+
+    - name: Create /opt/cni/bin directory
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Extract material
+      ansible.builtin.unarchive:
+        src: "/var/tmp/{{ k8s_cni_plugins }}"
+        dest: /usr/local/bin
+        remote_src: true
+      become: true
+
+  rescue:
+    - name: Uninstall containerd
+      ansible.builtin.dnf:
+        name: "containerd.io"
+        state: absent
+      become: true
+
+    - name: Remove repo file
+      ansible.builtin.file:
+        path: /etc/yum.repos.d/docker-ce.repo
+        state: absent
+      become: true
+
+    - name: Delete /etc/containerd/config.toml
+      ansible.builtin.file:
+        path: /etc/containerd/config.toml
+        state: absent
+      become: true
+
+    - name: Delete cni materials
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - "/var/tmp/{{ k8s_cni_plugins }}"
+        - /usr/local/bin
+      become: true

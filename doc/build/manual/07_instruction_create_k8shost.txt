@@ -1,0 +1,367 @@
+■Description
+  This Document is for building Kubernetes Master and making configure related settings by hands.
+
+  Reference: https://kubernetes.io/ja/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#%E5%BF%85%E9%A0%88%E3%83%9D%E3%83%BC%E3%83%88%E3%81%AE%E7%A2%BA%E8%AA%8D
+             https://kubernetes.io/ja/docs/reference/networking/ports-and-protocols/
+             https://kubernetes.io/ja/docs/setup/production-environment/container-runtimes/
+             https://kubernetes.io/ja/docs/concepts/cluster-administration/addons/
+             https://github.com/flannel-io/flannel#deploying-flannel-manually
+
+
+■Prerequisite
+  1.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  2.Please replace the information depending on the environment(e.g, IP address) with the actual information
+  3.Please note that firstly Master1 is created and then Master2-3 is created (The processes are different)
+
+  <Software information>
+    ・Docker Engine Community 24.0.2
+
+
+■Work Procedure
+  1.Create base VM
+    Read Document "instruction_create_vm"
+
+    Before move next step, boot VM by running commands below
+
+    # virsh list --all
+    =>Check the VM is not running
+             Id   Name           State
+      -------------------------------
+       44   dev-mas001v   shut off
+    # virsh start <VM name>
+    # virsh list --all
+    =>Check if the status of VM was changed
+       Id   Name           State
+      -------------------------------
+       44   dev-mas001v   running
+
+  2.Basic settings
+    2-1.Disable IPv6
+        # nmcli con mod "<name>" ipv6.method disabled
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # ip a |grep inet6
+        # ip a
+        =>Check that the settings have been applied
+          Ipv6 address of <name> Network interface should be disappeard
+        # cat /proc/sys/net/ipv6/conf/<name>/disable_ipv6
+        =>Check if the value is "1"
+
+    2-2.Basic Firewall settings
+        # systemctl status firewalld
+        =>Check if "Active status" is "inactive (dead)"
+        # systemctl start firewalld
+        =>Execute this command If "Active status" is "inactive (dead)"
+        # firewall-cmd --list-all
+        =>Check if the content is the same as below
+          public (active)
+            target: default
+            icmp-block-inversion: no
+            interfaces: <name>
+            sources:
+            services: cockpit dhcpv6-client ssh
+            ports:
+            protocols:
+            forward: yes
+            masquerade: no
+            forward-ports:
+            source-ports:
+            icmp-blocks:
+            rich rules:
+        # systemctl enable firewalld
+        # systemctl is-enabled firewalld
+        =>Check if it is "enabled"
+
+        These tasks are for stopping and disabling firewalld.(Skip them)
+        # systemctl status firewalld
+        =>Check if "Active status" is "active (running)"
+        # systemctl --now disable firewalld
+        # systemctl status firewalld
+        =>Check that the status changed "Active: inactive (dead)"
+
+    2-3.ssh settings
+        # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+        # ls -l /etc/ssh/sshd_config*
+        # vi /etc/ssh/sshd_config
+        =>Modify conf file like below
+          #PermitRootLogin no
+          =>Modify prohibit-password to no
+        # systemctl restart sshd && sudo systemctl enable sshd
+        # systemctl status sshd
+        # systemctl is-enabled sshd
+        =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+          Do login test
+
+    2-4.NTP settings
+        # systemctl status chronyd
+        # cp -p  /etc/chrony.conf /etc/chrony.conf_org
+        # ls -l /etc/chrony.conf*
+        # vi /etc/chrony.conf
+        =>Modify conf file like below
+          pool 192.168.10.4 iburst
+        # systemctl restart chronyd && systemctl enable chronyd
+        # systemctl status chronyd
+        =>Check if there are any errors and enabled
+        # chronyc sources
+        =>Check if chrony syncs with specified IP address and the status changed "Active: active (running)"
+
+    2-5.NFS client Settings
+        See instruction for NSP client
+
+  3.Install Docker
+    # dnf erase docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+    =>If they exist already, type "y"
+    # dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    # dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    # docker info
+    =>Check If it was installed
+      Client: Docker Engine - Community
+      Version:    24.0.2
+    # dnf info containerd.io
+    Installed Packages
+    Name         : containerd.io
+    Version      : 1.6.21
+    # systemctl enable --now docker
+    # systemctl is-enabled docker
+    =>Check if the output is "enabled"
+
+  4.Firewall settings for Kubernetes
+    # firewall-cmd --zone=public --add-port={6443/tcp,2379-2380/tcp,10250/tcp,10259/tcp,10257/tcp} --permanent
+    # firewall-cmd --reload
+    # firewall-cmd --list-all
+    =>Check if the content is the same as below (mountd, nfs3 and rpc-bind added to allowed services)
+      public (active)
+        target: default
+        icmp-block-inversion: no
+        interfaces: enp1s0
+        sources:
+        services: cockpit dhcpv6-client ssh
+        ports: 6443/tcp 2379-2380/tcp 10250/tcp 10259/tcp 10257/tcp
+        protocols:
+        forward: yes
+        masquerade: no
+        forward-ports:
+        source-ports:
+        icmp-blocks:
+        rich rules:
+
+  5.Kubernetes settings (general)
+    # getenforce
+# SELinux setting is "Disabled" for now on this environment 
+#    =>Check SELinux setting is "Permissive" if no run the following command
+#      # setenforce 0
+#      # sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+
+    # free -h
+    =>swap is enabled
+                     total        used        free      shared  buff/cache   available
+      Swap:          4.0Gi          0B       4.0Gi
+    # swapoff -a
+    # free -h
+    =>Check if swap was disabled
+                     total        used        free      shared  buff/cache   available
+      Swap:             0B          0B          0B
+    # cat /etc/fstab
+    =>Need to comment out to stop swap
+      UUID=e94a701d-df47-4956-a000-f59b9caf4402 none                    swap    defaults        0 0
+    # sed -i '/ swap / s/^/#/' /etc/fstab
+    # cat /etc/fstab
+    =>Check if the line for swap was commented out
+      #UUID=e94a701d-df47-4956-a000-f59b9caf4402 none                    swap    defaults        0 0
+
+    # modprobe overlay
+    # modprobe br_netfilter
+    # cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+    overlay
+    br_netfilter
+    EOF
+    # cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+    net.bridge.bridge-nf-call-iptables  = 1
+    net.bridge.bridge-nf-call-ip6tables = 1
+    net.ipv4.ip_forward                 = 1
+    EOF
+    # ls -l /etc/sysctl.d/k8s.conf
+    -rw-r--r-- 1 root root 120 Jun 27 10:12 /etc/sysctl.d/k8s.conf
+    # sudo sysctl --system
+    # lsmod | grep br_netfilter
+    # lsmod | grep overlay
+    # sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
+
+    # cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+    [kubernetes]
+    name=Kubernetes
+    baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+    enabled=1
+    gpgcheck=1
+    repo_gpgcheck=1
+    gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    exclude=kube*
+    EOF
+    # ls -l /etc/yum.repos.d/kubernetes.repo
+    -rw-r--r-- 1 root root 280 Jun 27 09:48 /etc/yum.repos.d/kubernetes.repo
+#    # dnf update
+    # dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+    # dnf info kubelet kubeadm kubectl
+    =>Check if they were installed
+    Name         : kubeadm
+    Version      : 1.27.3
+    ...
+    Name         : kubectl
+    Version      : 1.27.3
+    ...
+    Name         : kubelet
+    Version      : 1.27.3
+    ...
+    # systemctl --now enable kubelet
+
+    # mv /etc/containerd/config.toml /etc/containerd/config.toml.org
+    # ls -l /etc/containerd/config.toml*
+    -rw-r--r-- 1 root root 886 May  6 05:17 /etc/containerd/config.toml.org
+    # containerd config default > /etc/containerd/config.toml
+    # vi /etc/containerd/config.toml
+    =>Modify like below
+      systemd_cgroup = true
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+        ...
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+          SystemdCgroup = true
+    # systemctl enable --now containerd
+    # systemctl is-enabled containerd
+    enabled
+    # systemctl status containerd
+    =>Check if the status is "active (running)"
+
+  6./etc/hosts settings
+    # cp -p /etc/hosts /etc/hosts_org
+    # ls -l /etc/hosts*
+    # vi /etc/hosts
+    =>read parameter on document "homelabo\00_parameter_doc/etc_hosts.txt" and add it
+
+  7.Build Kubernetes
+    Choose 7-1 for Master1 or 7-2 for Master2-3
+    7-1.Kubernetes Master1
+    
+[ansible@dev-mas001v ~]$ export VIP=192.168.10.22
+[ansible@dev-mas001v ~]$ export INTERFACE=enp1s0
+[ansible@dev-mas001v ~]$ KVVERSION=$(curl -sL https://api.github.com/repos/kube-vip/kube-vip/releases | jq -r ".[0].name")
+ctr: failed to dial "/run/containerd/containerd.sock": connection error: desc = "transport: error while dialing: dial unix /run/containerd/containerd.sock: connect: permission denied"
+[ansible@dev-mas001v ~]$ sudo ctr images pull ghcr.io/kube-vip/kube-vip:$KVVERSION
+[sudo] password for ansible:
+ghcr.io/kube-vip/kube-vip:v0.6.0:                                                 resolved       |++++++++++++++++++++++++++++++++++++++|
+index-sha256:defef5b817487ca1f30123df5cfd17bad996d0b5f885e3004541810986d132d2:    done           |++++++++++++++++++++++++++++++++++++++|
+manifest-sha256:7211f940047b2292dc0054fddffbb4875ac6a4fc6ec62160f6f75aa462f0a257: done           |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:eb4b78f9055a3020bbd47ec6d183d7262e4bfd1ced2f213d6689d42cd8767340:    done           |++++++++++++++++++++++++++++++++++++++|
+config-sha256:8c4c99e346ae72adaa649405893fe561c1ff5c7dfcee072aff47c865ceb4fc17:   done           |++++++++++++++++++++++++++++++++++++++|
+layer-sha256:5b2d64022462ddd3078e7e547df18ce47b5d1d37488859b906e551400f027606:    done           |++++++++++++++++++++++++++++++++++++++|
+elapsed: 2.7 s                                                                    total:  12.1 M (4.5 MiB/s)
+unpacking linux/amd64 sha256:defef5b817487ca1f30123df5cfd17bad996d0b5f885e3004541810986d132d2...
+done: 346.151186ms
+[ansible@dev-mas001v ~]$ sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:$KVVERSION vip /kube-vip manifest pod --interface $INTERFACE --vip $VIP --controlplane --arp --leaderElection | tee /etc
+/kubernetes/manifests/kube-vip.yaml_org
+tee: /etc/kubernetes/manifests/kube-vip.yaml_org: Permission denied
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: kube-vip
+  namespace: kube-system
+spec:
+  containers:
+  - args:
+    - manager
+    env:
+    - name: vip_arp
+      value: "true"
+    - name: port
+      value: "6443"
+    - name: vip_interface
+      value: enp1s0
+    - name: vip_cidr
+      value: "32"
+    - name: cp_enable
+      value: "true"
+    - name: cp_namespace
+      value: kube-system
+    - name: vip_ddns
+      value: "false"
+    - name: vip_leaderelection
+      value: "true"
+    - name: vip_leaseduration
+      value: "5"
+    - name: vip_renewdeadline
+      value: "3"
+    - name: vip_retryperiod
+      value: "1"
+    - name: vip_address
+      value: 192.168.10.22
+    - name: prometheus_server
+      value: :2112
+    image: ghcr.io/kube-vip/kube-vip:v0.6.0
+    imagePullPolicy: Always
+    name: kube-vip
+    resources: {}
+    securityContext:
+      capabilities:
+        add:
+        - NET_ADMIN
+        - NET_RAW
+    volumeMounts:
+    - mountPath: /etc/kubernetes/admin.conf
+      name: kubeconfig
+  hostAliases:
+  - hostnames:
+    - kubernetes
+    ip: 127.0.0.1
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/admin.conf
+    name: kubeconfig
+status: {}
+
+[ansible@dev-mas001v ~]$
+    
+#    # kubeadm init \
+#    --kubernetes-version=1.27.3 \
+#    --pod-network-cidr=10.244.0.0/16
+#    =>this messege is going to be shown
+#      "Your Kubernetes control-plane has initialized successfully!"
+#    =>Following output is for joining Kubernetes cluster as worker
+#      kubeadm join 192.168.10.23:6443 --token cfl6r3.8zez736f1rlag5dw \
+#          --discovery-token-ca-cert-hash sha256:c2673665efdec6d3a12aabe83e50959307711480aead460606d225e2d1db731a
+
+    # kubeadm init --kubernetes-version=1.27.3 --pod-network-cidr=10.244.0.0/16 --control-plane-endpoint=192.168.10.22:6443 --upload-certs
+
+    7-2.Kubernetes Master2-3
+    # kubeadm init \
+    --kubernetes-version=1.27.3 \
+    --pod-network-cidr=10.244.0.0/16
+    =>this messege is going to be shown
+      "Your Kubernetes control-plane has initialized successfully!"
+    =>Following output is for joining Kubernetes cluster as worker
+      kubeadm join 192.168.10.22:6443 --token bzipny.8dhxr0gutyb9hger --discovery-token-ca-cert-hash sha256:b55f2244290d7a40560b554f93d94801a3bddf0c9c2458baa09c312ffb5573fb  --control-plane --certificate-key 1b8756f1c95ad5250ba71644d94f4c184c8ea15503b73453cfbf926f5627cb31
+
+  8.Copy authentication file
+    Login as ansible user
+    $ mkdir -p $HOME/.kube
+    $ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    $ sudo chown $(id -u):$(id -u) $HOME/.kube/config
+    $ ls -l $HOME/.kube/config
+    -rw------- 1 ansible ansible 5637 Jun 27 17:23 /home/ansible/.kube/config
+    $ kubectl get nodes
+    NAME          STATUS     ROLES           AGE   VERSION
+    dev-mas001v   NotReady   control-plane   14m   v1.27.3
+
+  9.Deploy Flannel
+    Login as ansible user
+    $ mkdir /home/ansible/manifestfiles
+    $ ls -ld /home/ansible/manifestfiles
+    drwxr-xr-x 2 ansible ansible 4096 Jun 27 17:35 /home/ansible/manifestfiles
+    $ cd /home/ansible/manifestfiles
+    $ curl -OL https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+    $ ls -l
+    -rw-r--r-- 1 ansible ansible 4459 Jun 27 17:55 kube-flannel.yml
+    =>If Network is "10.244.0.0/16", modify the content
+    $ kubectl apply -f /home/ansible/manifestfiles/kube-flannel.yml
+    $ kubectl get pods --all-namespaces -o wide
+    NAMESPACE      NAME                                  READY   STATUS    RESTARTS   AGE   IP              NODE          NOMINATED NODE   READINESS GATES
+    kube-flannel   kube-flannel-ds-zj7bq                 1/1     Running   0          13m   192.168.10.23   dev-mas001v   <none>           <none>

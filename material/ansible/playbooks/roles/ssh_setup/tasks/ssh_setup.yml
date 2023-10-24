@@ -1,0 +1,72 @@
+---
+- name: Slurp /etc/ssh/sshd_config
+  ansible.builtin.slurp:
+    path: /etc/ssh/sshd_config
+  become: true
+  register: slurp_sshdconf
+
+- name: Echo content of /etc/ssh/sshd_config
+  ansible.builtin.debug:
+    msg: "{{ slurp_sshdconf.content | b64decode }}"
+
+- name: Update /etc/ssh/sshd_config
+  block:
+    - name: Backup /etc/ssh/sshd_config
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config_org
+        owner: root
+        group: root
+        mode: "0600"
+        remote_src: true
+        force: false
+      become: true
+
+    - name: Modify /etc/ssh/sshd_config
+      ansible.builtin.copy:
+        src: sshd_config
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: "0600"
+        force: true
+      become: true
+      notify: Enable sshd
+
+    - name: Slurp /etc/ssh/sshd_config (after)
+      ansible.builtin.slurp:
+        path: /etc/ssh/sshd_config
+      register: slurp_sshdconf_after
+      become: true
+
+    - name: Echo content of /etc/ssh/sshd_config (after)
+      ansible.builtin.debug:
+        msg: "{{ slurp_sshdconf_after.content | b64decode }}"
+
+    - name: Get sshd service status
+      ansible.builtin.command: "systemctl status sshd"
+      changed_when: false
+      register: sshd_status
+
+    - name: Display sshd service status
+      ansible.builtin.debug:
+        msg: "{{ sshd_status }}"
+      when: sshd_status is succeeded
+  rescue:
+    - name: Restore /etc/ssh/sshd_config
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config_org
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+        force: true
+      failed_when: false
+      become: true
+
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+      become: true

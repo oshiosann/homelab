@@ -1,0 +1,73 @@
+---
+- name: Add host master001 as target host
+  ansible.builtin.add_host:
+    hostname: master001
+    ansible_ssh_host: "{{ host_parameters.master001v.ip_addr }}"
+  run_once: true
+
+- name: Check connection to master001
+  ansible.builtin.ping:
+  delegate_to: master001
+  run_once: true
+
+- name: Get existing tokens
+  ansible.builtin.shell: "set -o pipefail ; kubeadm token list | grep -v TOKEN"
+  changed_when: false
+  register: k8s_master_existing_tokens
+  delegate_to: master001
+  run_once: true
+
+- name: Display existing tokens
+  ansible.builtin.debug:
+    msg: "{{ k8s_master_existing_tokens.stdout_lines }}"
+  run_once: true
+
+- name: Create token list
+  ansible.builtin.set_fact:
+    k8s_master_existing_token_list: "{{ k8s_master_existing_tokens.stdout_lines | map('regex_replace', '^([\\S]+).*$', '\\1') | list }}"
+  run_once: true
+
+- name: Display existing tokens (after modified)
+  ansible.builtin.debug:
+    msg: "{{ k8s_master_existing_token_list }}"
+  run_once: true
+
+- name: Delete existing tokens
+  ansible.builtin.command: "kubeadm token delete {{ item }}"
+  with_items: "{{ k8s_master_existing_token_list }}"
+  delegate_to: master001
+  run_once: true
+
+- name: Check no tokens after deleting
+  ansible.builtin.shell: "set -o pipefail ; kubeadm token list"
+  changed_when: false
+  delegate_to: master001
+  run_once: true
+
+- name: Create token
+  ansible.builtin.command: "kubeadm token create --print-join-command"
+  changed_when: false
+  register: k8s_master_token
+  delegate_to: master001
+  run_once: true
+
+- name: Display token
+  ansible.builtin.debug:
+    msg: "{{ k8s_master_token.stdout }}"
+  run_once: true
+
+- name: Join k8s cluster (kubeadm join)
+  ansible.builtin.command: "{{ k8s_master_token.stdout }}"
+  register: k8s_master_join
+  until: k8s_master_join.rc == 0
+  become: true
+
+- name: Run "kubectl get nodes" to check if the worker is on k8s cluster
+  ansible.builtin.command: "kubectl get nodes"
+  changed_when: false
+  delegate_to: master001
+  register: check_worker_on_k8s
+
+- name: Display k8s node list
+  ansible.builtin.debug:
+    msg: "{{ check_worker_on_k8s.stdout }}"

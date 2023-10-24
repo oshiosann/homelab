@@ -1,0 +1,3 @@
+---
+- name: Include disable_swap.yml
+  ansible.builtin.include_tasks: disable_swap.yml

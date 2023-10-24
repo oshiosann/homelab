@@ -1,0 +1,79 @@
+---
+- name: Install packages for serverspec
+  block:
+    - name: Copy ruby packages
+      ansible.builtin.copy:
+        src: "ruby"
+        dest: "/var/tmp"
+        owner: ansible
+        group: ansible
+        mode: "0755"
+
+    - name: Install packages for ruby
+      ansible.builtin.command: "dnf localinstall -y /var/tmp/{{ item }} --nogpgcheck"
+      with_items: "{{ ruby_packages }}"
+      become: true
+
+#    - name: Get directory name
+#      ansible.builtin.command: "ls -d /usr/share/gems/gems/rubygems-update-*"
+#      changed_when: false
+#      register: rubygems_symlink_src
+#
+#    - name: Create symbolic link
+#      ansible.builtin.file:
+#        src: "{{ rubygems_symlink_src.stdout }}"
+#        dest: "/usr/share/gems/gems/{{ rubygems_symlink_src.stdout }}"
+#        owner: root
+#        group: root
+#        state: link
+#
+#    - name: Get information of symbolic link
+#      ansible.builtin.command: "ls -l /usr/share/gems/gems/{{ rubygems_symlink_src.stdout }}"
+#      changed_when: false
+#      register: check_rubygems_symlink
+#
+#    - name: Display information of symbolic link
+#      ansible.builtin.debug:
+#        msg: "{{ check_rubygems_symlink }}"
+
+#    - name: Update gem command
+#      ansible.builtin.command: "gem update --system"
+#      become: true
+
+    - name: Install serverspec
+      ansible.builtin.command: "gem install serverspec"
+      become: true
+
+    - name: Check installed serverspec version
+      ansible.builtin.shell: "set -o pipefail ; gem list | grep serverspec"
+      register: check_serverspec_version
+      changed_when: false
+
+    - name: Display serverspec version
+      ansible.builtin.debug:
+        msg: "{{ check_serverspec_version }}"
+  rescue:
+    - name: Uninstall serverspec
+      ansible.builtin.command: "gem uninstall serverspec"
+      ignore_errors: true
+      become: true
+
+    - name: Uninstall packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - ruby
+        - rubygems
+      ignore_errors: true
+      become: true
+
+    - name: Unstall packages for ansible-lint
+      ansible.builtin.command: "pip3 uninstall --yes ansible-lint"
+      ignore_errors: true
+      become: true
+
+    - name: Delete ruby packages
+      ansible.builtin.file:
+        path: "/var/tmp/ruby"
+        state: absent

@@ -1,0 +1,22 @@
+---
+# note that this vars file is only used on playbook to create vm
+# vars on this file are complemented with "playbooks/inventory/extra_vars/host_param.yml"
+virt_install_param: 
+  hostname: "{{ host_parameters.bacu001v.hostname }}"
+  ip_addr: "{{ host_parameters.bacu001v.ip_addr }}"
+  netmask: "{{ host_parameters.bacu001v.netmask }}"
+  gateway: "{{ host_parameters.bacu001v.gateway }}"
+  vmsize: "100"
+  vmcpu: "8"
+  vmmemory: "8192"
+  mac_addr: "{{ host_parameters.bacu001v.mac_addr }}"
+  osvariant: "almalinux8"
+  interface: "enp1s0"
+
+virt_install_installed_packages:
+  - "chrony"
+  - "net-tools"
+  - "cloud-utils-growpart"
+  - "e2fsprogs"
+  - "tar"
+  - "jq"

@@ -1,0 +1,16 @@
+---
+- hosts: k8s_master_main
+  environment:
+    KUBECONFIG: "/home/ansible/.kube/config"
+  tasks:
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: Include role k8s_apply_manifestfiles
+      ansible.builtin.include_role:
+        name: k8s_apply_manifestfiles

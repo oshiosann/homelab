@@ -1,0 +1,7 @@
+---
+hostname: "{{ host_parameters.git001v.hostname }}"
+firewall_ports:
+  - "80/tcp"
+  - "443/tcp"
+  - "9102/tcp"
+  - "10050/tcp"

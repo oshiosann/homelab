@@ -1,0 +1,193 @@
+■Description
+  This Document is for building Ansible Server and making configure related settings such as
+  Ansible and Serverspec by hands.
+
+
+■Prerequisite
+  1.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  2.Please replace the information depending on the environment(e.g, IP address) with the actual information
+  3.About Git client, Ansible Server doesn't use Pub-key Authentication
+    If use Git client, type credential in every use
+
+  <Software information>
+    ・ansible
+      ansible-7.2.0-1.el9.noarch
+      ansible-core-2.14.2-4.el9.x86_64
+      git-core-2.39.3-1.el9_2.x86_64
+      libnsl2-2.0.0-1.el9.x86_64
+      mpdecimal-2.5.1-3.el9.x86_64
+      python3.11-3.11.2-2.el9.x86_64
+      python3.11-cffi-1.15.1-1.el9.x86_64
+      python3.11-cryptography-37.0.2-5.el9.x86_64
+      python3.11-libs-3.11.2-2.el9.x86_64
+      python3.11-pip-wheel-22.3.1-2.el9.noarch
+      python3.11-ply-3.11-1.el9.noarch
+      python3.11-pycparser-2.20-1.el9.noarch
+      python3.11-pyyaml-6.0-1.el9.x86_64
+      python3.11-setuptools-wheel-65.5.1-2.el9.noarch
+      python3.11-six-1.16.0-1.el9.noarch
+      sshpass-1.09-4.el9.x86_64
+      python3-pip-21.2.3-6.el9.noarch
+      python3-setuptools-53.0.0-12.el9.noarch
+    ・ansible-lint 6.17.0
+    ・Ruby
+      ruby-3.0.4-160.el9_0.x86_64
+      ruby-default-gems-3.0.4-160.el9_0.noarch
+      ruby-libs-3.0.4-160.el9_0.x86_64
+      rubygem-bigdecimal-3.0.0-160.el9_0.x86_64
+      rubygem-bundler-2.2.33-160.el9_0.noarch
+      rubygem-io-console-0.5.7-160.el9_0.x86_64
+      rubygem-json-2.5.1-160.el9_0.x86_64
+      rubygem-psych-3.3.2-160.el9_0.x86_64
+      rubygem-rdoc-6.3.3-160.el9_0.noarch
+      rubygems-3.2.33-160.el9_0.noarch
+    ・serverspec 2.42.2
+    ・git 2.39.3
+
+■Work Procedure
+  1.Create base VM
+    Read Document "instruction_create_vm"
+
+    Before move next step, boot VM by running commands below
+
+    # virsh list --all
+    =>Check the VM is not running
+             Id   Name           State
+      -------------------------------
+       44   dev-ansb001v   shut off
+    # virsh start <VM name>
+    # virsh list --all
+    =>Check if the status of VM was changed
+       Id   Name           State
+      -------------------------------
+       44   dev-ansb001v   running
+
+  2.Basic settings
+    2-1.Disable Wi-Fi function
+        # nmcli radio wifi
+        =>Check current settings
+        # nmcli radio wifi off
+        # nmcli radio wifi
+        # nmcli c s
+        =>Check that the settings have been applied
+
+    2-2.Disable IPv6
+        # nmcli con mod "<name>" ipv6.method disabled
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # ip a |grep inet6
+        # ip a
+        =>Check that the settings have been applied
+          Ipv6 address of <name> Network interface should be disappeard
+        # cat /proc/sys/net/ipv6/conf/<name>/disable_ipv6
+        =>Check if the value is "1"
+
+    2-3.Basic Firewall settings
+        # systemctl status firewalld
+        =>Check if "Active status" is "inactive (dead)"
+        # systemctl start firewalld
+        =>Execute this command If "Active status" is "inactive (dead)"
+        # firewall-cmd --list-all
+        =>Check if the content is the same as below
+          public (active)
+            target: default
+            icmp-block-inversion: no
+            interfaces: <name>
+            sources:
+            services: cockpit dhcpv6-client ssh
+            ports:
+            protocols:
+            forward: yes
+            masquerade: no
+            forward-ports:
+            source-ports:
+            icmp-blocks:
+            rich rules:
+        # systemctl enable firewalld
+        # systemctl is-enabled firewalld
+        =>Check if it is "enabled"
+
+        These tasks are for stopping and disabling firewalld.(Skip them)
+        # systemctl status firewalld
+        =>Check if "Active status" is "active (running)"
+        # systemctl --now disable firewalld
+        # systemctl status firewalld
+        =>Check that the status changed "Active: inactive (dead)"
+
+    2-4.ssh settings
+        # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+        # ls -l /etc/ssh/sshd_config*
+        # vi /etc/ssh/sshd_config
+        =>Modify conf file like below
+          #PermitRootLogin no
+          =>Modify prohibit-password to no
+        # systemctl restart sshd && sudo systemctl enable sshd
+        # systemctl status sshd
+        # systemctl is-enabled sshd
+        =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+          Do login test
+
+    2-5.NTP settings
+        # systemctl status chronyd
+        # cp -p  /etc/chrony.conf /etc/chrony.conf_org
+        # ls -l /etc/chrony.conf*
+        # vi /etc/chrony.conf
+        =>Modify conf file like below
+          pool 192.168.10.4 iburst
+        # systemctl restart chronyd && systemctl enable chronyd
+        # systemctl status chronyd
+        =>Check if there are any errors and enabled
+        # chronyc sources
+        =>Check if chrony syncs with specified IP address and the status changed "Active: active (running)"
+
+    2-6.NFS client Settings
+        See instruction for NSP client
+
+  3.Install ansible
+    # dnf install -y epel-release
+    # dnf install -y ansible
+    # ansible --version
+    =>Check if the ansible exists
+      ansible [core 2.14.2]
+        config file = /etc/ansible/ansible.cfg
+        configured module search path = ['/home/ansible/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+        ansible python module location = /usr/lib/python3.11/site-packages/ansible
+        ansible collection location = /home/ansible/.ansible/collections:/usr/share/ansible/collections
+        executable location = /usr/bin/ansible
+        python version = 3.11.2 (main, Feb 16 2023, 00:00:00) [GCC 11.3.1 20221121 (Red Hat 11.3.1-4)] (/usr/bin/python3.11)
+        jinja version = 3.1.2
+        libyaml = True
+
+    # dnf install -y python3-pip
+    # pip3 install ansible-lint
+    # ansible-lint --version
+    =>Check if ansible-lint was installed
+      ansible-lint 6.17.0 using ansible-core:2.15.0 ruamel-yaml:None ruamel-yaml-clib:None
+
+★★need to create directoy for ansible
+
+
+  4.Serverspec
+    # dnf install -y ruby rubygems
+#    # ln -s /usr/local/share/gems/gems/rubygems-update-3.4.13/ /usr/share/gems/gems/rubygems-update-3.4.13
+#    # ls -l /usr/share/gems/gems/rubygems-update-3.4.13
+#    =>Check if the symlink was created
+#      lrwxrwxrwx 1 root root 50 Jun 12 15:22 /usr/share/gems/gems/rubygems-update-3.4.13 -> /usr/local/share/gems/gems/rubygems-update-3.4.13/
+#    # gem update --system
+    # gem install serverspec
+    # gem list |grep serverspec
+    =>Check if serverspec was installed
+      serverspec (2.42.2)
+
+★★for now I created it by here
+
+  5.Install Git client
+    # dnf -y install git
+    # git -v
+    =>Check if Git client was installed
+    # git config --global user.email "<email address>"
+    # git config --global user.name "ansible"
+    # git config -l
+    user.email=<email address>
+    user.name=ansible
+    color.ui=auto
+    =>This account is going to be create when Git Server is built

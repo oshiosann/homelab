@@ -1,0 +1,88 @@
+Reference: https://nekosakamiti.com/git-for-windows/
+           https://qiita.com/SkyLaptor/items/6347f38c8c010f4d5bd2
+
+
+1.Download git for Windows
+  1-1.Access the URL below and click "Download"
+      https://git-for-windows.github.io/
+
+  1-2.Run downloaded Git-xx.xx.xx-64-bit on Explorer
+
+  1-3.Select "Next >" on License page
+
+  1-4.Select "Next" with no change on Select Destination Location (It's OK the path is default)
+
+  1-5.Select "Next" with no change on Select Components
+
+  1-6.Select "Next" with no change on Select Start Menu Folder
+
+  1-7.Select "Next" with no change on Choosing the default editor used by Git
+
+  1-8.select "Override the default branch name for new repositories" and Next""
+
+  1-9.Select "Next" with no change on Adjusting your PATH environment
+
+  1-10.Select "Next" with no change on Choosing the SSH executable
+
+  1-11.Select "Next" with no change on Choosing HTTPS transport backend
+
+  1-12.Select "Checkout as-is, commit as-is" and "Next" on Configuring the line ending conversions
+
+  1-13.Select "Next" with no change on Configuring the terminal emulator to use with Git Bash
+
+  1-14.Select "Next" with no change on Choose the default behavior of 'git pull'
+
+  1-15.Select "Next" with no change on Choose a credential helper
+
+  1-16.Select "Next" with no change on Configuring extra options
+
+  1-17.Select "Next" with no change on Configuring experimental options
+
+  1-18.Uncheck "View Release Notes" and select "Finish" 
+
+  1-19.Launch "Git Bash" and run the commands below
+       $ git config --global user.email "<email address>"
+       $ git config --global user.name "oshiosan"
+       $ git config --global color.ui auto
+       $ git config -l --show-origin
+       Check if the configuration were set
+         file:/home/ansible/.gitconfig   user.email=<email address>
+         file:/home/ansible/.gitconfig   user.name=<user name>
+         file:/home/ansible/.gitconfig   color.ui=auto
+       $ exit
+
+
+2.Download TortoiseGit and Create SSH keys
+  2-1.Access the URL below and click "Download" and select Download TortoiseGit XX.XX.XX.XX 64-bit 
+      https://tortoisegit.org/
+
+  2-2.Run downloaded Git-xx.xx.xx-64-bit on Explorer
+
+  2-3.Go "Next" with no change and select "Install"
+
+  2-4.Uncheck "Run first start wizard" and Select "Finish"
+
+  2-5.Launch "Git Bash"
+
+  2-6.Create keys
+      $ ssh-keygen -t rsa -b 4096 -C "<email address>"
+      Enter all with blank
+
+
+3.Install SSH public key to GitLab Server
+  3-1.Login to GitLab as <user name>
+
+  3-2.Click upper right icon then click "Preferences" after that click "SSH Keys" 
+
+  3-3.Paste copied public keys and name Title "my laptop key" then select "Add key"
+
+4.Save credential on TortoiseGit
+  4-1.Right click on Explorer and select TortoiseGit Settings Credential
+
+  4-2.Select and type like below
+      Credential helper: Advanced
+      Config type: Global
+      Helper: wincred
+      Username: <user name>
+
+  4-3.Select "Add New/Save" and "OK"

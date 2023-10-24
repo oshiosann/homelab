@@ -1,0 +1,34 @@
+---
+- hosts: gitlab
+  tasks:
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: Include role disable_ipv6
+      ansible.builtin.include_role:
+        name: disable_ipv6
+
+    - name: Include role firewall_setup
+      ansible.builtin.include_role:
+        name: firewall_setup
+
+    - name: Include role ssh_setup
+      ansible.builtin.include_role:
+        name: ssh_setup
+
+    - name: Include role ntp_client_setup
+      ansible.builtin.include_role:
+        name: ntp_client_setup
+
+    - name: Include role nfs_client_setup
+      ansible.builtin.include_role:
+        name: nfs_client_setup
+
+    - name: Include role install_gitlab
+      ansible.builtin.include_role:
+        name: install_gitlab

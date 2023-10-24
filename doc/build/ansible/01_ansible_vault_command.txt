@@ -1,0 +1,34 @@
+1.Encypt string (Ansible user's password)
+
+  run the following command to encrypt string with Ansible Vault on Ansible Server.
+
+    $ ansible-vault encrypt_string '<string you want to encrypt>' --name '<name (of variable)>'
+
+  Then type Vault password twice.
+
+  <Sample>
+    [ansible@dev-ansb001v playbooks]$ ansible-vault encrypt_string 'Sample' --name 'ansible_pass'
+    New Vault password: 
+    Confirm New Vault password: 
+    Encryption successful
+    ansible_pass: !vault |
+              $ANSIBLE_VAULT;1.1;AES256
+              38633761333932336162303134373038393564313531633534316465623034663361333263643434
+              3634346662346264376231663766353862396136326431320a373737346333383566323032303231
+              64613664393636386136653961303531303439633861376436363434363436653161313566393736
+              3233343438633162650a396335313365333566643634353738323934626463316362306366666164
+              3835
+
+2.Encypt a file (Password file)
+  $ ansible-vault encrypt <name of file>
+  Vault password:  # enter vault password
+  Confirm Vault password:  # enter same password
+  Encryption successful
+  $ cat <name of file>
+  
+3.Edit encrypted file
+  $ ansible-vault edit <name of file>
+
+4. decrypt file
+  $ ansible-vault decrypt
+  $ cat <name of file>
