@@ -1,0 +1,53 @@
+---
+- name: Install kubernetes packages
+  block:
+    - name: Get stats of /etc/yum.repos.d/kubernetes.repo
+      ansible.builtin.stat:
+        path: /etc/yum.repos.d/kubernetes.repo
+      register: k8s_repofile_exists
+
+    - name: Put /etc/yum.repos.d/kubernetes.repo
+      ansible.builtin.template:
+        src: kubernetes.repo.j2
+        dest: /etc/yum.repos.d/kubernetes.repo
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      when: not k8s_repofile_exists.stat.exists
+
+    - name: Install kubernetes packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+        disable_excludes: kubernetes
+      with_items:
+        - "kubelet-{{ kubernetes_version }}"
+        - "kubeadm-{{ kubernetes_version }}"
+        - "kubectl-{{ kubernetes_version }}"
+      become: true
+
+    - name: Enable kubelet
+      ansible.builtin.systemd:
+        name: kubelet
+        state: started
+        enabled: true
+      become: true
+
+  rescue:
+    - name: Delete /etc/yum.repos.d/kubernetes.repo
+      ansible.builtin.file:
+        path: /etc/yum.repos.d/kubernetes.repo
+        state: absent
+      become: true
+      when: not k8s_repofile_exists.stat.exists
+
+    - name: Uninstall kubernetes packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - kubelet
+        - kubeadm
+        - kubectl
+      become: true

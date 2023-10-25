@@ -1,0 +1,100 @@
+■Description
+  This Document is for configuring NFS client by hands.
+
+
+■Prerequisite
+  1.NFS Server was built already before the work
+  2.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  3.Please replace the information depending on the environment(e.g, IP address) with the actual information
+  4.Ubuntu(KVM host) is GUI Server (Not CUI Server) so the content of Systemd service unit file for Ubuntu will be created for GUI.
+
+  <Software information>
+    nfs-common
+      AlmaLinux: 2.5.4-18.el9
+      Ubuntu: "1:1.3.4-2.5ubuntu3.4"
+
+
+■Work Procedure
+  1.ALMALinux
+    # dnf -y install nfs-utils
+    =>Check if nfs-common package exists
+      Installed Packages
+      Name         : nfs-utils
+
+    # vi /etc/fstab
+    =>Add line like below
+      192.168.10.4:/mnt/share  /mnt  nfs  vers=3,defaults  0  0
+    # mount -a
+    # df -h
+    =>Check if the NFS directory were moounted
+      192.168.10.4:/mnt/share  5.5T  132G  5.1T   3% /mnt
+    # ls -l /mnt
+    =>Check if the shared NFS directories
+      total 8
+      drwxr-xr-x 2 root root 4096 Jun  3 11:34 backup
+      drwxr-xr-x 3 root root 4096 Jun  3 17:46 common
+
+  2.Ubuntu
+    # sudo apt install nfs-common
+    # apt-cache policy nfs-common
+    =>Check if nfs-common package exists
+      nfs-common:
+        Installed: 1:1.3.4-2.5ubuntu3.4
+        Candidate: 1:1.3.4-2.5ubuntu3.4
+        
+        Version table:
+       *** 1:1.3.4-2.5ubuntu3.4 500
+              500 http://archive.ubuntu.com/ubuntu focal-updates/main amd64 Packages
+              100 /var/lib/dpkg/status
+           1:1.3.4-2.5ubuntu3.3 500
+              500 http://archive.ubuntu.com/ubuntu focal-security/main amd64 Packages
+           1:1.3.4-2.5ubuntu3 500
+              500 http://archive.ubuntu.com/ubuntu focal/main amd64 Packages
+    # vi /etc/rc.local
+    =>Write it like below
+      #!/bin/sh
+      sleep 10
+      mount -t nfs -o vers=3 192.168.10.4:/mnt/share /mnt
+      systemctl restart procps # This setting is for disabling IPv6
+      exit 0
+    # chmod 744 /etc/rc.local
+    # ls -l /etc/rc.local
+    =>Check if the Permission is same as below
+      -rwxr--r-- 1 root root 78 Jun  5 12:26 /etc/rc.local
+    # vi /etc/systemd/system/rc-local.service
+    =>Write it like below(Ubuntu is set up as GUI so we set Install section as "WantedBy=graphical.target")
+      [Unit]
+      Description=/etc/rc.local Compatibility
+
+      [Service]
+      Type=forking
+      ExecStart=/etc/rc.local start
+      TimeoutSec=0
+      StandardOutput=tty
+      RemainAfterExit=yes
+      SysVStartPriority=99
+
+      [Install]
+      WantedBy=graphical.target
+      #WantedBy=multi-user.target
+    # ls -l /etc/systemd/system/rc-local.service
+    =>Check if the file you created exists
+      -rw-r--r-- 1 root root 212 Jun  5 12:13 /etc/systemd/system/rc-local.service
+
+    # systemctl enable --now rc-local
+    # systemctl is-enabled rc-local
+    =>Check if it was enabled
+
+    # vi /etc/fstab
+    =>Add line like below
+      192.168.10.4:/mnt/share  /mnt  nfs  vers=3,defaults  0  0
+    # mount -a
+    # df -h
+    =>Check if the NFS directory were moounted
+      192.168.10.4:/mnt/share            5.5T     0  5.2T   0% /mnt
+    # ls -l /mnt
+    =>Check if the shared NFS directories
+      total 8
+      drwxr-xr-x 2 root root 4096 Jun  3 11:34 backup
+      drwxr-xr-x 3 root root 4096 Jun  3 17:46 common
+

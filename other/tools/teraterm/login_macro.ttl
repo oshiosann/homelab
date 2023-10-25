@@ -1,0 +1,73 @@
+; add password before using it and if the number of host is changed,
+; also add lines for added host information
+
+; define log variables
+LOGDIR ='C:\Users\hiros\teraterm_log\'
+getdate LOG_NAME '%Y%m%d_%H%M%S_&h.log'
+FULLPATH = LOGDIR
+strconcat FULLPATH LOG_NAME
+
+; for choosing host
+if result = 0 then
+    strdim HOSTLIST 17
+    HOSTLIST[0] = 'dev-kvm001p'
+    HOSTLIST[1] = 'dev-git001v'
+    HOSTLIST[2] = 'dev-nfs001p'
+    HOSTLIST[3] = 'dev-ansb001v'
+    HOSTLIST[4] = 'dev-ansb002v'
+    HOSTLIST[5] = 'dev-bacu001v'
+    HOSTLIST[6] = 'dev-bacu002v'
+    HOSTLIST[7] = 'dev-zbx001v'
+    HOSTLIST[8] = 'dev-zbx002v'
+    HOSTLIST[9] = 'dev-mas001v'
+    HOSTLIST[10] = 'dev-mas002v'
+    HOSTLIST[11] = 'dev-mas003v'
+    HOSTLIST[12] = 'dev-work001v'
+    HOSTLIST[13] = 'dev-work002v'
+    HOSTLIST[14] = 'dev-mkub001v'
+    HOSTLIST[15] = 'dev-test001v'
+    HOSTLIST[16] = 'type IP address manually'
+
+    strdim HOSTIP 17
+        HOSTIP[0] = '192.168.10.2'
+        HOSTIP[1] = '192.168.10.11'
+        HOSTIP[2] = '192.168.10.4'
+        HOSTIP[3] = '192.168.10.10'
+        HOSTIP[4] = '192.168.10.30'
+        HOSTIP[5] = '192.168.10.14'
+        HOSTIP[6] = '192.168.10.15'
+        HOSTIP[7] = '192.168.10.31'
+        HOSTIP[8] = '192.168.10.12'
+        HOSTIP[9] = '192.168.10.23'
+        HOSTIP[10] = '192.168.10.24'
+        HOSTIP[11] = '192.168.10.25'
+        HOSTIP[12] = '192.168.10.26'
+        HOSTIP[13] = '192.168.10.27'
+        HOSTIP[14] = '192.168.10.22'
+        HOSTIP[15] = '192.168.10.70'
+
+    listbox 'Choose host you want to connect' 'items' HOSTLIST
+    if result = -1 then
+        end
+    else
+        CON = HOSTIP[result]
+        goto login
+    endif
+
+; for typing host name
+elseif result = 16 then
+    MESSAGE = 'Type host name you want to connect'
+    inputbox MESSAGE 'HOSTLIST[16]'
+    CON = inputstr
+    goto login
+else
+    end
+endif
+
+; for login to host
+: login
+strconcat CON ':22 /ssh /auth=password /user=ansible /passwd=<password for ansible>'
+connect CON
+logopen FULLPATH 0 1 1 1
+wait "#" "$" ">>"
+end

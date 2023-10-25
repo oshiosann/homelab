@@ -1,0 +1,9 @@
+---
+- name: Copy kube-vip.yaml to /etc/kubernetes/manifests
+  ansible.builtin.template:
+    src: "kube-vip.yaml.j2"
+    dest: "/etc/kubernetes/manifests/kube-vip.yaml"
+    owner: root
+    group: root
+    mode: "0600"
+  become: true

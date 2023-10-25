@@ -1,0 +1,314 @@
+■Description
+  This Document is for building GitLab Server and making configure related settings such by hands.
+
+
+■Prerequisite
+  1.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  2.Please replace the information depending on the environment(e.g, IP address) with the actual information
+  3.Manage code to create homelab on group project after built Gitlab (We don't create user (indivisual) project)
+
+  <Software information>
+    policycoreutils-3.5-1.el9
+    git-2.39.3-1.el9_2
+    gitlab-ce-16.0.4-ce.0.el8
+    postfix-3.5.9-19.el9
+
+■Work Procedure
+  1.Create base VM
+    Read Document "instruction_create_vm"
+
+    Before move next step, boot VM by running commands below
+
+    # virsh list --all
+    =>Check the VM is not running
+             Id   Name           State
+      -------------------------------
+       44   dev-ansb001v   shut off
+    # virsh start <VM name>
+    # virsh list --all
+    =>Check if the status of VM was changed
+       Id   Name           State
+      -------------------------------
+       44   dev-git001v   running
+
+  2.Basic settings
+    2-1.Disable Wi-Fi function
+        # nmcli radio wifi
+        =>Check current settings
+        # nmcli radio wifi off
+        # nmcli radio wifi
+        # nmcli c s
+        =>Check that the settings have been applied
+
+    2-2.Disable IPv6
+        # nmcli con mod "<name>" ipv6.method disabled
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # ip a |grep inet6
+        # ip a
+        =>Check that the settings have been applied
+          Ipv6 address of <name> Network interface should be disappeard
+        # cat /proc/sys/net/ipv6/conf/<name>/disable_ipv6
+        =>Check if the value is "1"
+
+    2-3.Basic Firewall settings
+        # systemctl status firewalld
+        =>Check if "Active status" is "inactive (dead)"
+        # systemctl start firewalld
+        =>Execute this command If "Active status" is "inactive (dead)"
+        # firewall-cmd --list-all
+        =>Check if the content is the same as below
+          public (active)
+            target: default
+            icmp-block-inversion: no
+            interfaces: <name>
+            sources:
+            services: cockpit dhcpv6-client ssh
+            ports:
+            protocols:
+            forward: yes
+            masquerade: no
+            forward-ports:
+            source-ports:
+            icmp-blocks:
+            rich rules:
+        # systemctl enable firewalld
+        # systemctl is-enabled firewalld
+        =>Check if it is "enabled"
+
+        This tasks are for stopping and disabling firewalld.(Skip them)
+        # systemctl status firewalld
+        =>Check if "Active status" is "active (running)"
+        # systemctl --now disable firewalld
+        # systemctl status firewalld
+        =>Check that the status changed "Active: inactive (dead)"
+
+    2-4.ssh settings
+        # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+        # ls -l /etc/ssh/sshd_config*
+        # vi /etc/ssh/sshd_config
+        =>Modify conf file like below
+          #PermitRootLogin no
+          =>Modify prohibit-password to no
+        # systemctl restart sshd && sudo systemctl enable sshd
+        # systemctl status sshd
+        # systemctl is-enabled sshd
+        =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+          Do login test
+
+    2-5.NTP settings
+        # systemctl status chronyd
+        # cp -p  /etc/chrony.conf /etc/chrony.conf_org
+        # ls -l /etc/chrony.conf*
+        # vi /etc/chrony.conf
+        =>Modify conf file like below
+          pool 192.168.10.4 iburst
+        # systemctl restart chronyd && systemctl enable chronyd
+        # systemctl status chronyd
+        =>Check if there are any errors and enabled
+        # chronyc sources
+        =>Check if chrony syncs with specified IP address and the status changed "Active: active (running)"
+
+    2-6.NFS client Settings
+        See instruction for NSP client
+
+  3.Install GitLab
+    # firewall-cmd --list-all
+    =>Check current settings before work
+    # firewall-cmd --zone=public --add-port={80/tcp,443/tcp} --permanent
+    # firewall-cmd --reload
+    # firewall-cmd --list-all
+    # dnf install -y python3-policycoreutils git postfix
+    =>curl policycoreutils were already installed
+
+★ postfix might not be needed
+
+    # dnf info python3-policycoreutils
+    =>Check if it was installed
+    # dnf info git
+    =>Check if it was installed
+★  # dnf info postfix
+★  =>Check if it was installed
+★  # systemctl enable --now postfix
+★  # systemctl status postfix
+★  =>Check if "Active status" is "active (running)"
+    # vi /etc/yum.repos.d/gitlab_gitlab-ce.repo
+    =>Add the content like below
+      [gitlab_gitlab-ce]
+      name=gitlab_gitlab-ce
+      baseurl=https://packages.gitlab.com/gitlab/gitlab-ce/el/8/$basearch
+      repo_gpgcheck=1
+      gpgcheck=1
+      enabled=1
+      gpgkey=https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey
+             https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey/gitlab-gitlab-ce-3D645A26AB9FBD22.pub.gpg
+      sslverify=1
+      sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+      metadata_expire=300
+      
+      [gitlab_gitlab-ce-source]
+      name=gitlab_gitlab-ce-source
+      baseurl=https://packages.gitlab.com/gitlab/gitlab-ce/el/8/SRPMS
+      repo_gpgcheck=1
+      gpgcheck=1
+      enabled=1
+      gpgkey=https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey
+             https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey/gitlab-gitlab-ce-3D645A26AB9FBD22.pub.gpg
+      sslverify=1
+      sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+      metadata_expire=300
+    # dnf repolist
+    =>Check if the repositories were added
+      repo id                                                    repo name
+      gitlab_gitlab-ce                                           gitlab_gitlab-ce
+      gitlab_gitlab-ce-source                                    gitlab_gitlab-ce-source
+    # dnf install -y gitlab-ce
+    # vi /etc/gitlab/gitlab.rb
+    =>Modify them like below
+      # gitlab_rails['gitlab_email_enabled'] = true
+      # gitlab_rails['gitlab_email_from'] = '<email address>'
+      # gitlab_rails['gitlab_email_display_name'] = 'gitlab'
+      # gitlab_rails['gitlab_email_reply_to'] = '<email address>'
+      # gitlab_rails['smtp_enable'] = true
+      # gitlab_rails['smtp_address'] = "smtp.gmail.com"
+      # gitlab_rails['smtp_port'] = 587
+      # gitlab_rails['smtp_user_name'] = "<email address>"
+      # gitlab_rails['smtp_password'] = "<email password>"
+      # gitlab_rails['smtp_domain'] = "smtp.gmail.com"
+      # gitlab_rails['smtp_authentication'] = "login"
+      # gitlab_rails['smtp_enable_starttls_auto'] = true
+      # gitlab_rails['smtp_tls'] = false
+      # gitlab_rails['smtp_openssl_verify_mode'] = 'none'
+    # gitlab-ctl reconfigure
+    =>"gitlab Reconfigured!" will be shown after finishing it
+    # sudo cat /etc/gitlab/initial_root_password
+    =>Check initial password for root
+
+  4.Gitlab basic settings
+    4-1.Login to GitLab via web browser
+        Login to http://<IP address>
+        =>user: root
+          pw: initial password(you checked it before step)
+    4-2.Change password for root user
+        After login, click User icon, upper right of the screen and select "Edit profile"=>"Password"
+        Then type current password and new one, after that select "Save password"
+        After changing it, move Top page of GitLab
+
+    4-3.Create common user for operation
+        Click "Configure GitLab"=>"New user"
+
+        Type below information on "New user" page then select "Create user"
+          Name: ansible
+          Username: ansible
+          Email: <email address>
+        
+        Move Top page of GitLab and click "Configure GitLab"=>"View latest users"=>"Edit" for "ansible" user
+        Change password into new one
+          password: <password for ansible user>
+
+        After logout then re-login and change password same one like above
+
+    4-4.Create group
+        Login to GitLab as ansible user
+
+        select "Groups" on left pane and "New group"=>"Create group"
+
+        type like below
+          Group name:homelab developer
+          Group URL: homelab-developer
+          =>Auto generated
+        Visibility level: Internal
+
+        Select "Create group"
+
+        ※It's not OK to add new member into the created group because there is no member to add
+
+    4-5.Create project
+        Login to GitLab as ansible user
+
+        select "Groups" on left pane and select "homelab developer"
+
+        select "Create blank project" and type like below
+          Project name: homelab
+          Project URL: http://192.168.10.11/homelab-developer/homelab
+          =>Create project as group project
+          Visibility Level: Internal
+
+        Select "Create project"
+
+    4-6.Set profile picture
+        Login to Gitlab as ansible user
+
+        click ansible's profile picture, uppe right of the screen=>Edit Profile=>Choose file...
+
+        Choose "home_lab_doc\04_other_material\gitlab_avatar.jpg"
+
+        Adjust the image so that it is centered and select "Set new profile picture"
+        then click "Update profile settings" to save
+
+        You can see new profile picture once you re-login
+
+
+    4-7.Laptop settings for using Gitlab
+        Read Document "operation_gitlab_laptop_settings"
+
+    4-8.SSH public key settings for laptop and Ansible Server
+        <laptop>
+          Login to Gitlab as ansible user
+          After login, click User icon, upper right of the screen and select "Edit profile"=>"SSH Keys"
+
+        Paste created public key of laptop to "key" section
+        =>You can see it on folder "C:\Users\<user>\.ssh" with Explorer
+
+        Type "my laptop key" on "Title" section then select "Add key"
+
+        Launch "Git Bash" on laptop
+
+        Run the command
+          $ ssh -T git@<IP address of GitLab>
+            ...
+            Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+            =>Type "yes"
+            ...
+            Welcome to GitLab, @ansible!
+            =>Check the message
+
+        <Ansible Server>
+          $ mkdir /home/ansible/.ssh
+          $ chmod 700 /home/ansible/.ssh
+          $ ls -ld /home/ansible/.ssh
+          =>Check if the directory exists and the permission is 700
+          $ cd /home/ansible/.ssh
+          $ ssh-keygen -t rsa -b 4096 -C "<email address>"
+          =>Enter all with blank
+          $ ls -la /home/ansible/.ssh
+          $ cat /home/ansible/.ssh/id_rsa.pub
+          =>Copy the content
+
+          Login to Gitlab as ansible user
+          After login, click User icon, upper right of the screen and select "Edit profile"=>"SSH Keys"
+
+          Paste created public key of Ansible Server to "key" section
+          =>You can see it on directory "/home/ansible/.ssh"
+
+          Type "ansible server" on "Title" section then select "Add key"
+
+          Run the command on Ansible Server
+            $ ssh -T git@<IP address of GitLab Server>
+              ...
+              Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+              =>Type "yes"
+              ...
+              Welcome to GitLab, @ansible!
+              =>Check the message
+
+    4-9.create new repository
+        Launch "Git Bash" on your laptop
+
+        run these command
+          $ git clone git@<IP address of GitLab Server>:homelab-developer/homelab.git
+            Cloning into 'homelab'...
+            remote: Enumerating objects: 3, done.
+            remote: Total 3 (delta 0), reused 0 (delta 0), pack-reused 3
+            Receiving objects: 100% (3/3), done.
+
+        Add files you ant to upload to GitLab

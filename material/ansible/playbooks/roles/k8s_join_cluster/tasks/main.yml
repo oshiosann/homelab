@@ -1,0 +1,8 @@
+---
+- name: Include join_k8s_cluster_master.yml
+  ansible.builtin.include_tasks: join_k8s_cluster_master.yml
+  when: inventory_hostname in groups['k8s_master_sub']
+
+- name: Include join_k8s_cluster_worker.yml
+  ansible.builtin.include_tasks: join_k8s_cluster_worker.yml
+  when: inventory_hostname in groups['k8s_worker']

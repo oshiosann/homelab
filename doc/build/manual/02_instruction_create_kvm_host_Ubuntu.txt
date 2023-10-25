@@ -1,0 +1,449 @@
+■Description
+  This Document is for installing Ubuntu to Desktop PC and making configure related settings such as
+  KVM host, TeamViewer and basic OS settings by hands.
+
+
+■Prerequisite
+  1.Ubuntu Desktop(GUI) is going to be installed
+  2.Plase connect needed components to the host such as power supply and keyboard in order to boot and set it up
+  3.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+    =>It is recommended not to use root user in Ubuntu, but root user is enabled in this environment
+      for differentiate common user and root user
+  4.Please replace the information depending on the environment(e.g, IP address) with the actual information
+
+  <hardware information> (not all)
+    TBD
+
+  <Software information>
+    ubuntu-22.04.2-desktop-amd64
+
+
+■Work Procedure
+  1.Prepare OS Image and boot OS
+    1-1.Insert USB Stick to your Laptop/Desktop PC
+
+    1-2.Download OS Image with URL below
+        https://jp.ubuntu.com/download/thank-you?version=22.04.2&architecture=amd64&platform=desktop
+
+    1-3.create bootable USB Stick with Rufus
+        Reference: https://blog.kabocy.com/linux/5806/
+        You can download it there.
+
+    1-4.Pull out USB Stick from laptop and insert it to the host you are going to install
+
+  2.Install Ubuntu
+
+    2-1.boot the host and wait black colored screen with the messages like below
+        Please enter on selected "*Try or Install Ubuntu" messege
+          GNU GRUB version X.XX
+
+          ------------------
+          *Try or Install Ubuntu
+           Ubuntu (safe graphics)
+          ....
+          ....
+          ------------------
+
+    2-2.Select "English" and "Install Ubuntu" on Welcome screen
+
+    2-3.Select "Japanese" keyboard rayout on Keyboard layout screen
+
+    2-4.Select like below and "Continue" on Updates and other software screen
+        "What apps would you like to install to start with"
+        =>Select "Minimal Installation"
+        "Other options"
+        =>Select "Download updates while installing Ubuntu" only
+          (If other option is selected, please remove it)
+    2-5.Select drive and "Install Now" on Erase disk and install Ubuntu screen
+        selected "dev/nvme1n1 - 1.0 TB KINGSTON SNVSE 1000G" this time
+
+    2-6.Select "Continue" on Write the changes to disk? screen if it is shown
+
+    2-7.Select "Tokyo" and "Continue" on where are you screen
+
+    2-8.Type these information on Who are you? screen
+          Your name:       # Blank
+          Your conputer's name: <KVM host name>
+          Pick a username: ansible
+          Choose a password: <password for ansible user>
+          Confirm your password: <password for ansible user>
+          〇 Log in automatically              # No need to select
+          ● Requiremy password to log in      # Select it
+          □ use Active Directory              # No need to select
+
+    2-9.Wait for the installation and Select "Restart Now" when Installation Copmlete pop up is shown
+
+    2-10.Remove bootable USB from the host and push "Enter key" on Please remove the installation medium,
+         then press Enter: screen
+
+    2-11.Log in with ansible user
+
+    2-12.Select "Skip" on Online Accounts screen
+
+    2-13.Select "Skip for now" on Ubuntu Pro screen and Select "Next"
+
+    2-14.Select "Done" on Ready to go screen
+
+    2-15.select "Install Now" If "Software Updater" pop up is shown on your screen
+
+  3.Basic settings
+    Launch Terminal app for Using CLI
+
+    3-1.Change root password
+        $ sudo su -
+        # passwd
+        =>set password and do login test
+          you can logout with Ctrl + D
+        $ su -
+        =>Check if you can be root user
+
+    3-2.Timezone settings
+        # timedatectl
+        =>Check if the current settings is Asia/Tokyo. Set Timezone if it is not it
+
+    3-3.Locale settings
+        # localectl
+        =>Check if the current settings is LANG=en_US.UTF-8 of System Locale and JP of X11 Layout
+
+    3-4.hostname settings
+        #hostname
+        =>Check if hostname is correct
+        # hostnamectl set-hostname <hostname>
+        =>Once you re-login, it will be applied
+          e.g., dev-kvm001p
+
+    3-5.update packages list
+        # apt update
+
+    3-6.ssh settings
+        # apt install -y openssh-server
+        # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+        # ls -l /etc/ssh/sshd_config*
+        # vi /etc/ssh/sshd_config
+        =>Modify conf file like below
+          PermitRootLogin no
+          =>Modify yes to no
+        # systemctl restart ssh && sudo systemctl enable ssh
+        # systemctl status ssh
+        # systemctl is-enabled ssh
+        =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+          Do login test
+
+    3-7.IP address settings
+        # ip a
+        =>Check current IP address
+        # cd /etc/netplan
+        # ls -l
+        =>Check if network settings file (e.g., 00-installer-config.yaml) exists
+          If yes change the name like below
+          # mv 00-installer-config.yaml 00-installer-config.yaml_org
+          # ls -l
+          =>
+          Check the name after work
+
+        # vi 99-netcfg.yaml 
+        =>Create it like below
+          network:
+            version: 2
+            renderer: networkd
+            ethernets:
+              enp9s0:
+                dhcp4: false
+                dhcp6: false
+                addresses:
+                  - 192.168.10.2/24
+                nameservers:
+                  addresses: [192.168.10.1]
+                routes:
+                  - to: default
+                    via: 192.168.10.1
+        # systemctl restart systemd-networkd.service
+        =>If message was displayed
+        # netplan apply
+
+        # ip a
+        =>Check that the settings have been applied
+
+    3-8.Disable Wi-Fi function
+        # nmcli radio wifi
+        =>Check current settings
+        # nmcli radio wifi off
+        # nmcli radio wifi
+        # nmcli c s
+        =>Check that the settings have been applied
+
+    3-9.Disable IPv6
+        # ip -6 a
+        =>Check IPv6 Addresess
+        # vi /etc/sysctl.d/60-ipv6-disable.conf
+        =>Create it like below
+          net.ipv6.conf.all.disable_ipv6=1
+          net.ipv6.conf.default.disable_ipv6=1
+          net.ipv6.conf.lo.disable_ipv6=1
+        # systemctl restart procps
+        # vi /etc/rc.local
+        =>Create it like below
+          #!/bin/sh
+          systemctl restart procps
+          exit 0
+        # chmod 744 /etc/rc.local
+        # reboot
+        # ip a
+        =>Check if IPv6 Address was disabled
+
+    3-10.resolved.conf settings
+        You set DNS Server on 3-7.IP address settings to Network Interface so you don't need to
+        modify /etc/systemd/resolved.conf 
+
+    3-11.SELinux settings
+        No need to install selinux-utils
+
+    3-12.Basic Firewall settings
+         # cp -p /etc/default/ufw /etc/default/ufw_org
+         # vi /etc/default/ufw
+         # =>Modify "IPV6=yes" to "IPV6=no"
+         # ufw status
+         =>Check if the status is inactive
+           Status: inactive
+         # ufw enable
+         # ufw status verbose
+         =>Check if the status is active
+           Status: active
+           Logging: on (low)
+           Default: deny (incoming), allow (outgoing), disabled (routed)
+           New profiles: skip
+         # ufw allow 22
+         Rule added
+         # ufw default deny
+         =>set as deny not reject
+         # ufw status verbose
+         =>Check if status is active ,Default is deny and port 22 is listed as ALLOW IN
+           Status: active
+           Logging: on (low)
+           Default: deny (incoming), allow (outgoing), disabled (routed)
+           New profiles: skip
+
+           To                         Action      From
+           --                         ------      ----
+           22                         ALLOW IN    Anywhere
+         # systemctl enable ufw
+         # systemctl is-enabled ufw
+         enabled
+         # systemctl is-enabled ufw
+         =>Check if the status is active
+
+    3-13.NTP settings (Client)
+         # systemctl status systemd-timesyncd
+         # cp -p /etc/systemd/timesyncd.conf /etc/systemd/timesyncd.conf_org
+         # vi /etc/systemd/timesyncd.conf
+         =>add IP addrss like below and remove comnt out
+           NTP=192.168.10.4
+         # systemctl restart systemd-timesyncd && systemctl restart systemd-timesyncd
+         # systemctl status systemd-timesyncd
+         =>Check if the active status is active
+           You can see the synchronization status like below
+           Status: "Initial synchronization to time server 192.168.10.4:123 (192.168.10.4)."
+         # timedatectl timesync-status
+         =>Check if the IP address of NTP Server is displayed
+
+    3-14.NFS client Settings
+         See instruction for NSP client
+
+
+  4.TeamViewer settings
+    4-1. Install TeamViewer
+         Use Terminal(CLI)
+
+         # curl -OL https://download.teamviewer.com/download/linux/teamviewer-host_amd64.deb
+         =>Reference: https://www.teamviewer.com/ja/download/linux/?_ga=2.239459331.1818203116.1686195541-1324056132.1686195541
+           TeamViewer Host
+         # ls -l
+         =>Check the downloaded file name
+         # apt install ./teamviewer-host_amd64.deb
+         # ufw status verbose
+         =>Check fw list before work
+         # ufw allow 5938
+         # ufw status verbose
+         =>
+         Check if the port was added to the list
+         5938                       ALLOW IN    Anywhere
+         # vi /etc/gdm3/custom.conf
+         =>Remove comment out below line
+           WaylandEnable=false
+         # reboot
+
+    4-2.Basic settings
+        Use GUI 
+
+        Launch TeamViewer App
+
+        Select "I accept the EULA and the DPA" and "Continue" on TeamViewer License Agreement
+        if it is shown
+
+        Select Grant easy access
+
+        Change deactivated into accept on Incoming LAN connections, General
+
+        Asign TeamViewer account on Account Assignment, General and select asign
+
+        Select Configure on Rules for connections to this conputer, Security
+          Select Allow access only for the following partners and ID of TeamViewer on your laptop
+          then add by push "+"
+
+        Select Disable TeamViewer shutdown on More, Advanced
+
+        Select Apply and OK
+
+  5.KVM host settings
+    Reference: https://www.linuxtechi.com/how-to-install-kvm-on-ubuntu-22-04/
+
+    # egrep -c '(vmx|svm)' /proc/cpuinfo
+    =>Check if the value isn't 0 (Greater than 0)
+    # apt install -y cpu-checker
+    # kvm-ok
+    =>Check if the outpot is like below
+      INFO: /dev/kvm exists
+      KVM acceleration can be used
+
+    Now the host can be KVM host
+
+    # apt install -y qemu-kvm virt-manager libvirt-daemon-system virtinst libvirt-clients bridge-utils
+    =>notes
+      - qemu-kvm  – An opensource emulator and virtualization package that provides hardware emulation.
+      - virt-manager – A Qt-based graphical interface for managing virtual machines via the libvirt daemon.
+      - libvirt-daemon-system – A package that provides configuration files required to run the libvirt daemon.
+      - virtinst – A  set of command-line utilities for provisioning and modifying virtual machines.
+      - libvirt-clients – A set of client-side libraries and APIs for managing and controlling virtual machines & hypervisors from the command line.
+      - bridge-utils – A set of tools for creating and managing bridge devices.
+
+    # systemctl enable --now libvirtd
+
+    # systemctl status libvirtd
+    =>Check if the status is active
+    # usermod -aG kvm ansible
+    # usermod -aG libvirt ansible
+
+    # cp -p /etc/netplan/99-netcfg.yaml /etc/netplan/99-netcfg.yaml_org
+    # vi /etc/netplan/99-netcfg.yaml
+    =>Modify it like below
+      network:
+        version: 2
+        renderer: networkd
+        ethernets:
+          enp9s0:
+            dhcp4: false
+            dhcp6: false
+      #      addresses:
+      #        - 192.168.10.2/24
+      #      nameservers:
+      #        addresses: [192.168.10.1]
+      #      routes:
+      #        - to: default
+      #          via: 192.168.10.1
+        bridges:
+          br0:
+            interfaces: [enp9s0]
+            dhcp4: false
+            addresses: [192.168.10.2/24]
+            macaddress: a8:a1:59:3c:a6:4c
+            routes:
+              - to: default
+                via: 192.168.10.1
+                metric: 100
+            nameservers:
+              addresses: [192.168.10.1]
+            parameters:
+              stp: false
+            dhcp6: false
+    # ip a
+    =>Check if enp9s0 doesn't have IP address and br0 was created and have IP address 
+      1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+          inet 127.0.0.1/8 scope host lo
+             valid_lft forever preferred_lft forever
+      2: enp9s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel master br0 state UP group default qlen 1000
+          link/ether a8:a1:59:3c:a6:4c brd ff:ff:ff:ff:ff:ff
+      3: virbr0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default qlen 1000
+          link/ether 52:54:00:ac:a9:91 brd ff:ff:ff:ff:ff:ff
+          inet 192.168.122.1/24 brd 192.168.122.255 scope global virbr0
+             valid_lft forever preferred_lft forever
+      4: br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+          link/ether a8:a1:59:3c:a6:4c brd ff:ff:ff:ff:ff:ff
+          inet 192.168.10.2/24 brd 192.168.10.255 scope global br0
+             valid_lft forever preferred_lft forever
+          inet6 fe80::aaa1:59ff:fe3c:a64c/64 scope link
+             valid_lft forever preferred_lft forever
+    # brctl show
+    =>Check if br0 exists
+      bridge name    bridge id            STP enabled   interfaces
+      br0            8000.a8a1593ca64c    no            enp9s0
+      virbr0         8000.525400aca991    yes
+    # virt-host-validate
+    =>Check if the lines of ★ were PASS
+      ★  QEMU: Checking for hardware virtualization                                 : PASS
+      ★  QEMU: Checking if device /dev/kvm exists                                   : PASS
+          QEMU: Checking if device /dev/kvm is accessible                            : PASS
+          QEMU: Checking if device /dev/vhost-net exists                             : PASS
+          QEMU: Checking if device /dev/net/tun exists                               : PASS
+          QEMU: Checking for cgroup 'cpu' controller support                         : PASS
+          QEMU: Checking for cgroup 'cpuacct' controller support                     : PASS
+          QEMU: Checking for cgroup 'cpuset' controller support                      : PASS
+          QEMU: Checking for cgroup 'memory' controller support                      : PASS
+          QEMU: Checking for cgroup 'devices' controller support                     : PASS
+          QEMU: Checking for cgroup 'blkio' controller support                       : PASS
+          QEMU: Checking for device assignment IOMMU support                         : WARN (No ACPI IVRS table found, IOMMU either disabled in BIOS or not supported by this hardware platform)
+          QEMU: Checking for secure guest support                                    : WARN (AMD Secure Encrypted Virtualization appears to be disabled in firmware.)
+           LXC: Checking for Linux >= 2.6.26                                         : PASS
+           LXC: Checking for namespace ipc                                           : PASS
+           LXC: Checking for namespace mnt                                           : PASS
+           LXC: Checking for namespace pid                                           : PASS
+           LXC: Checking for namespace uts                                           : PASS
+           LXC: Checking for namespace net                                           : PASS
+           LXC: Checking for namespace user                                          : PASS
+           LXC: Checking for cgroup 'cpu' controller support                         : PASS
+           LXC: Checking for cgroup 'cpuacct' controller support                     : PASS
+           LXC: Checking for cgroup 'cpuset' controller support                      : PASS
+           LXC: Checking for cgroup 'memory' controller support                      : PASS
+           LXC: Checking for cgroup 'devices' controller support                     : PASS
+           LXC: Checking for cgroup 'freezer' controller support                     : FAIL (Enable 'freezer' in kernel Kconfig file or mount/enable cgroup controller in your system)
+           LXC: Checking for cgroup 'blkio' controller support                       : PASS
+           LXC: Checking if device /sys/fs/fuse/connections exists                   : PASS
+    # apt install -y virt-top
+
+    # ssh ansible@192.168.10.4 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+
+    You are working on NFS Server
+    $ uname -n
+    $ hostname
+    =>Check if you loged in with ansible
+    $ ls -l /mnt/share/store/common
+    =>Check if there is no directory on common
+    $ mkdir -p /mnt/share/common/ISO/almalinux
+    $ ls -l /mnt/share/common/ISO
+    =>Check if these directories exist
+      drwxrwxr-x 2 ansible ansible 4096  6月  9 10:16 almalinux
+    $ cd /mnt/share/common/ISO/almalinux
+    $ curl -OL http://ftp.jaist.ac.jp/pub/Linux/almalinux/9.2/isos/x86_64/AlmaLinux-9.2-x86_64-dvd.iso
+    $ curl -OL http://ftp.jaist.ac.jp/pub/Linux/almalinux/9.2/isos/x86_64/AlmaLinux-9.2-x86_64-minimal.iso
+    $ ls -l
+    =>Check if the ISO files were downloaded
+    $ exit
+
+    You are working on KVM host
+    # mkdir /ISO
+    # ls -ld /ISO
+    =>Check if the directory exists
+    # cp /mnt/share/common/ISO/almalinux* /ISO
+    # ls -l /ISO
+    =>Check the ISO files were copied on the directory
+
+  6.Add apps to favirites
+    Add following apps to favorites
+      - Terminal
+      - Virtual Machine Manager
+      - TeamViewer
+
+    for adding them, click right side of your mouse
+
+  7.Change Power Saving Options
+    Change Screen Blank time 5 minutes into 15 minutes on Power Saving Options, Power, Settings

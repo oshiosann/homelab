@@ -1,0 +1,17 @@
+---
+- hosts: kvm_host[0]
+  tasks:
+    - name: Include extra vars only for creating vm
+      ansible.builtin.include_vars: "/home/ansible/playbooks/inventory/extra_vars/virt_install/{{ installed_host_type }}.yml"
+
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: Include role create_vm
+      ansible.builtin.include_role:
+        name: create_vm

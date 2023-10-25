@@ -1,0 +1,69 @@
+---
+- name: Uninstall docker and related packages if already installed
+  ansible.builtin.dnf:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - docker
+    - docker-client
+    - docker-client-latest
+    - docker-common
+    - docker-latest
+    - docker-latest-logrotate
+    - docker-logrotate
+    - docker-engine
+  become: true
+
+- name: Install docker
+  block:
+    - name: Put repo file for docker
+      ansible.builtin.template:
+        src: docker-ce.repo.j2
+        dest: /etc/yum.repos.d/docker-ce.repo
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+    - name: Install docker packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{ docker_packages }}"
+      become: true
+
+    - name: Enable docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+      become: true
+
+    - name: Get installed docker info
+      ansible.builtin.command: "docker info"
+      changed_when: false
+      register: check_installed_docker
+      become: true
+
+    - name: Display output of df command
+      ansible.builtin.debug:
+        msg: "{{ check_installed_docker }}"
+      when: check_installed_docker is succeeded
+  rescue:
+    - name: Uninstall docker packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-buildx-plugin
+        - docker-compose-plugin
+      become: true
+
+    - name: Remove repo file
+      ansible.builtin.file:
+        path: /etc/yum.repos.d/docker-ce.repo
+        state: absent
+      become: true

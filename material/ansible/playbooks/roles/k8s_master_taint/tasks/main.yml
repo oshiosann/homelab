@@ -1,0 +1,3 @@
+---
+- name: Include k8s_master_taint.yml
+  ansible.builtin.include_tasks: k8s_master_taint.yml

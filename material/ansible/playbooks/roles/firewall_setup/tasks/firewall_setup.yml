@@ -1,0 +1,49 @@
+---
+- name: Enable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+  become: true
+
+- name: Get firewall settings
+  ansible.builtin.command: "firewall-cmd --list-all"
+  changed_when: false
+  become: true
+  register: firewall_port_list
+
+- name: Display current firewall settings
+  ansible.builtin.debug:
+    msg: "{{ firewall_port_list }}"
+  when: firewall_port_list is succeeded
+
+- name: Add firewall port
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    zone: public
+    immediate: true
+    state: enabled
+  with_items: "{{ firewall_ports }}"
+  become: true
+
+- name: Get firewall settings (after)
+  ansible.builtin.command: "firewall-cmd --list-all"
+  changed_when: false
+  become: true
+  register: firewall_port_list_after
+
+- name: Display current firewall settings (after)
+  ansible.builtin.debug:
+    msg: "{{ firewall_port_list_after }}"
+  when: firewall_port_list is succeeded
+
+- name: Get firewalld service status
+  ansible.builtin.command: "systemctl status firewalld"
+  changed_when: false
+  register: firewalld_status
+
+- name: Display firewalld service status
+  ansible.builtin.debug:
+    msg: "{{ firewalld_status }}"
+  when: firewalld_status is succeeded

@@ -1,0 +1,51 @@
+---
+- name: Slurp /etc/hosts
+  ansible.builtin.slurp:
+    path: /etc/hosts
+  register: slurp_etchosts
+
+- name: Echo content of /etc/hosts
+  ansible.builtin.debug:
+    msg: "{{ slurp_etchosts.content | b64decode }}"
+
+- name: Backup /etc/hosts
+  ansible.builtin.copy:
+    src: /etc/hosts
+    dest: /etc/hosts_org
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: true
+    force: false
+  become: true
+
+- name: Update /etc/hosts
+  block:
+    - name: Update /etc/hosts
+      ansible.builtin.template:
+        src: hosts.j2
+        dest: /etc/hosts
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+  rescue:
+    - name: Restore /etc/hosts
+      ansible.builtin.copy:
+        src: /etc/hosts_org
+        dest: /etc/hosts
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+        force: true
+      become: true
+
+- name: Slurp /etc/hosts (after)
+  ansible.builtin.slurp:
+    path: /etc/hosts
+  register: slurp_etchosts_after
+
+- name: Echo content of /etc/hosts (after)
+  ansible.builtin.debug:
+    msg: "{{ slurp_etchosts_after.content | b64decode }}"

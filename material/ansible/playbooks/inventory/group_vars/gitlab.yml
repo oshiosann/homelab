@@ -1,0 +1,23 @@
+---
+gitlab_repo_info:
+  baseurl: "https://packages.gitlab.com/gitlab/gitlab-ce/el/8/$basearch"
+  gpgkey:
+    key: "https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey"
+    pub_key: "https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey/gitlab-gitlab-ce-3D645A26AB9FBD22.pub.gpg"
+
+gitlab_repo_info_source:
+  baseurl: "https://packages.gitlab.com/gitlab/gitlab-ce/el/8/SRPMS"
+  gpgkey:
+    key: "https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey"
+    pub_key: "https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey/gitlab-gitlab-ce-3D645A26AB9FBD22.pub.gpg"
+
+gitlab_packages:
+  - "python3-policycoreutils"
+  - "git"
+  - "postfix"
+  - "gitlab-ce"
+
+gitlab_email_display_name: "gitlab"
+gitlab_smtp_info:
+  hostname: "smtp.gmail.com"
+  port: "587"

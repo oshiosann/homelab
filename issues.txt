@@ -1,0 +1,51 @@
+issue list I need to resolve
+
+- network
+    - make configure L2SW for VLAN setting
+    - install router above L2 SW
+
+- monitoring
+  - add monitoring setting to Zabbix server
+    - running service
+    - NTP sync
+    - NFS mount
+- gitlab
+  - put data directory "/var/opt/gitlab" onto NFS directory
+    - to use "root squash" option to prevent creating directory as root
+  - add gitlab-rake command example onto ops doc (text p59)
+  - change HTTP into HTTPS with firewall port 443 (text p62)
+    - /etc/host or DNS server
+    - FQDN
+  - backup
+    - shellscript
+      - regular job daily
+    - move data to NFS Server?
+    - ops doc
+  - restore
+    - ops doc
+  - automation
+    - creating operator user
+    - change root pw with python-gitlab(is it possible?)
+    - create project(home-lab)
+- zabbix
+  - server
+  - agent install
+  - split brain
+- bacula
+  - server
+  - agent install
+  - ops doc
+- kvm host
+  - add HW info onto the instruction
+- package
+  - manage version of packages (local install)
+- kubernetes
+  - /etc/containerd/config.toml内を変数化
+  - etcdのバックアップ
+  - VIP IPにFQDN名を付ける
+  - add extention of kubectl completion to master nodes
+    $ echo 'source <(kubectl completion bash)' >> ~/.bashrc
+  - kubectl top node
+    - need to deploy "metrics server"
+  - stern
+    - https://github.com/stern/stern

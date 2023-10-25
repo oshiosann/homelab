@@ -1,0 +1,83 @@
+---
+- name: Slurp /etc/chrony.conf
+  ansible.builtin.slurp:
+    path: /etc/chrony.conf
+  register: slurp_chronyconf
+
+- name: Echo content of /etc/chrony.conf
+  ansible.builtin.debug:
+    msg: "{{ slurp_chronyconf.content | b64decode }}"
+
+- name: Update /etc/chrony.conf
+  block:
+    - name: Backup /etc/chrony.conf
+      ansible.builtin.copy:
+        src: /etc/chrony.conf
+        dest: /etc/chrony.conf_org
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+        force: false
+      become: true
+
+    - name: Modify /etc/chrony.conf
+      ansible.builtin.template:
+        src: chrony.conf.j2
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: "0644"
+        force: true
+      become: true
+      notify: Enable chronyd
+
+    - name: Slurp /etc/chrony.conf (after)
+      ansible.builtin.slurp:
+        path: /etc/chrony.conf
+      register: slurp_chronyconf_after
+
+    - name: Echo content of /etc/chrony.conf (after)
+      ansible.builtin.debug:
+        msg: "{{ slurp_chronyconf_after.content | b64decode }}"
+
+    - name: Get chronyd service status
+      ansible.builtin.command: "systemctl status chronyd"
+      changed_when: false
+      register: chronyd_status
+
+    - name: Display chronyd service status
+      ansible.builtin.debug:
+        msg: "{{ chronyd_status }}"
+      when: chronyd_status is succeeded
+
+    - name: Pause for 30 seconds to sync
+      ansible.builtin.pause:
+        seconds: 20
+
+    - name: Get synchronization status
+      ansible.builtin.command: "chronyc sources"
+      changed_when: false
+      register: chrony_sync_status
+
+    - name: Display synchronization status
+      ansible.builtin.debug:
+        msg: "{{ chrony_sync_status }}"
+      when: chrony_sync_status is succeeded
+  rescue:
+    - name: Restore /etc/chrony.conf
+      ansible.builtin.copy:
+        src: /etc/chrony.conf_org
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: "0644"
+        remote_src: true
+        force: true
+      become: true
+
+    - name: Restart chronyd
+      ansible.builtin.systemd:
+        name: chronyd
+        state: restarted
+      become: true

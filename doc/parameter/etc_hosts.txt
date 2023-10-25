@@ -1,0 +1,28 @@
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.10.4  dev-nfs001p
+192.168.10.2  dev-kvm001p
+192.168.10.11  dev-git001v
+192.168.10.10  dev-ansb001v
+192.168.10.23  dev-mas001v
+192.168.10.24  dev-mas002v
+192.168.10.25  dev-mas003v
+192.168.10.26  dev-work001v
+192.168.10.27  dev-work002v
+
+
+
+
+# TBD
+# dev-zbx001v    192.168.10.11
+# dev-zbx002v    192.168.10.12
+# VIP          192.168.10.13
+# dev-bacu001v   192.168.10.14
+# dev-bacu002v   192.168.10.15
+# VIP          192.168.10.16
+# dev-graf001v   192.168.10.17
+# dev-kbn001v    192.168.10.18
+# dev-logs001v   192.168.10.19
+# dev-sysl001v   192.168.10.20
+# dev-elas001v   192.168.10.21
+# dev-mkub001v   192.168.10.22

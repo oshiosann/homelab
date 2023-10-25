@@ -1,0 +1,33 @@
+$ docker image build -t <image name>:<tag> .
+=>Specify image name and tag and use Docker file on current directory
+
+$ docker image build -t <image name>:<tag> -f <docker file name>
+=>If Docker file's name is not Dockerfile, add "-f" option
+
+$ docker image ls
+=>Display image list
+
+$ docker container run -d -p <port A>:<port B> <image name>:<tag>
+=>Forword port A to localhost to port B
+
+
+
+Docker Hub
+
+<hostname of Docker registory>/<namespace>/<repository>:<tag>
+e.g. docker.io/dockerhub_user/repository/tag
+or   dockerhub_user/repository/tag # You can omit hostname
+=>Repository is image name
+
+
+$ docker login
+=>Login to Docker Hub
+
+$ docker image tag <image name>:<tag> <Docker Hub user>/<repository>:<tag>
+=>Replace image tag
+
+$ docker image push <Docker Hub user>/<repository>:<tag>
+=>Push image to Docker Hub
+
+$ docker image build -t <Docker Hub user>/<repository>:<tag> .
+=>You can omit replacing tag

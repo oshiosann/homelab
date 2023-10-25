@@ -1,0 +1,18 @@
+## command module
+# If a task is failed, skip and move next tasks
+# It is counted as "ignored=1" on PLAY RECAP
+ignore_errors: yes
+
+# "changed" status is counted as "ok=1" 
+changed_when: no
+
+# "failed" status is counted as "ok=1"
+failed_when: no
+
+# treat long command
+- name: check kernel parameters
+  ansible.builtin.command: >
+    sysctl
+    net.bridge.bridge-nf-call-iptables
+    net.bridge.bridge-nf-call-ip6tables
+    net.ipv4.ip_forward

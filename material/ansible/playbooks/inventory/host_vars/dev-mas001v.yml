@@ -1,0 +1,12 @@
+---
+hostname: "{{ host_parameters.master001v.hostname }}"
+firewall_ports:
+  - "8472/udp"
+  - "9102/tcp"
+  - "6443/tcp"
+  - "2379-2380/tcp"
+  - "8080/tcp"
+  - "10050/tcp"
+  - "10250/tcp"
+  - "10259/tcp"
+  - "10257/tcp"

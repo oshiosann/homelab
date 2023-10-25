@@ -1,0 +1,13 @@
+---
+hostname: "{{ host_parameters.zbx002v.hostname }}"
+firewall_ports:
+  - "2224/tcp"
+  - "3121/tcp"
+  - "21064/tcp"
+  - "5405/udp"
+  - "3306/tcp"
+  - "9102/tcp"
+  - "10050/tcp"
+  - "10051/tcp"
+  - "80/tcp"
+#  - "443/tcp"

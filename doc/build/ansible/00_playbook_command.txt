@@ -1,0 +1,62 @@
+Playbook command
+
+
+Check if Ansible Server is already created to run Playbook.
+
+
+1. Build Ansible server
+#  $ ansible-playbook --extra-vars "installed_host_type=ansb001v" create_vm.yml -vvv # Ansible server is going to be created by running script
+  $ ansible-playbook --extra-vars "installed_host_type=ansb002v" create_vm.yml -vvv
+#  $ ansible-playbook build_ansible_server.yml -l dev-ansb001v -vvv # For Rebuilding it
+  $ ansible-playbook build_ansible_server.yml -l dev-ansb002v -vvv
+
+
+2.Build GitLab Server
+  $ ansible-playbook --extra-vars "installed_host_type=git001v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=git002v" create_vm.yml -vvv
+  $ ansible-playbook build_gitlab_server.yml -vvv
+
+
+3.Kubernetes Master main build
+  $ ansible-playbook --extra-vars "installed_host_type=master001v" create_vm.yml -vvv
+  $ ansible-playbook build_k8s_master_main.yml -vvv
+
+
+4.Kubernetes Master sub build
+  $ ansible-playbook --extra-vars "installed_host_type=master002v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=master003v" create_vm.yml -vvv
+  $ ansible-playbook build_k8s_master_sub.yml -vvv
+
+
+5.Kubernetes Worker build
+  $ ansible-playbook --extra-vars "installed_host_type=worker001v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=worker002v" create_vm.yml -vvv
+  $ ansible-playbook build_k8s_worker.yml -vvv
+
+
+6.Build Manifest files
+  $ ansible-playbook build_k8s_environment.yml -vvv
+
+  For checking
+  # kubectl get pods --all-namespaces -o wide
+
+
+7.Build Bacula Server
+  $ ansible-playbook --extra-vars "installed_host_type=bacu001v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=bacu002v" create_vm.yml -vvv
+  $ ansible-playbook build_bacula_servers.yml -vvv
+
+
+8.Build Zabbix Server
+  $ ansible-playbook --extra-vars "installed_host_type=zbx001v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=zbx002v" create_vm.yml -vvv
+  $ ansible-playbook build_zabbix_servers.yml -vvv
+
+
+9.Build Docker host
+  $ ansible-playbook --extra-vars "installed_host_type=docker001v" create_vm.yml -vvv
+  $ ansible-playbook build_docker_host.yml -vvv
+
+
+10.Build Test Server
+  $ ansible-playbook --extra-vars "installed_host_type=test001v" create_vm.yml -vvv

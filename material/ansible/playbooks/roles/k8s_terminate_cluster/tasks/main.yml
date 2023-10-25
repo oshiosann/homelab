@@ -1,0 +1,6 @@
+---
+- name: Include k8s_module_setup.yml
+  ansible.builtin.include_tasks: k8s_module_setup.yml
+
+- name: Include install_k8s_packages.yml
+  ansible.builtin.include_tasks: install_k8s_packages.yml

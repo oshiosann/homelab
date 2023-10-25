@@ -1,0 +1,3 @@
+---
+- name: Include ssh_setup.yml
+  ansible.builtin.include_tasks: ssh_setup.yml

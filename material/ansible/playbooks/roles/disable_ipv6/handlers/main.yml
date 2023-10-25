@@ -1,0 +1,12 @@
+---
+- name: Reboot host
+  ansible.builtin.reboot:
+    post_reboot_delay: 45
+  async: 1
+  poll: 0
+  become: true
+
+- name: Wait for reboot
+  ansible.builtin.wait_for_connection:
+    delay: 30
+    timeout: 300

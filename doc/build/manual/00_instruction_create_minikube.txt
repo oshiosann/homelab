@@ -1,0 +1,157 @@
+Description
+  This Document is for building Minikube and making configure related settings by hands.
+
+
+■Prerequisite
+  1.The character on Work Procedure "$" is common user (ansible user) and "#" is root user
+  2.Please replace the information depending on the environment(e.g, IP address) with the actual information
+
+  <Software information>
+    ・Minikube version v1.30.1
+    ・Docker Engine Community 24.0.2
+
+■Work Procedure
+  1.Create base VM
+    Read Document "instruction_create_vm"
+
+    Before move next step, boot VM by running commands below
+
+    # virsh list --all
+    =>Check the VM is not running
+             Id   Name           State
+      -------------------------------
+       44   dev-mkub001v   shut off
+    # virsh start <VM name>
+    # virsh list --all
+    =>Check if the status of VM was changed
+       Id   Name           State
+      -------------------------------
+       44   dev-mkub001v   running
+
+  2.Basic settings
+    2-1.Disable Wi-Fi function
+        # nmcli radio wifi
+        =>Check current settings
+        # nmcli radio wifi off
+        # nmcli radio wifi
+        # nmcli c s
+        =>Check that the settings have been applied
+
+    2-2.Disable IPv6
+        # nmcli con mod "<name>" ipv6.method disabled
+        # nmcli c down "<name>" && nmcli con up "<name>"
+        # ip a |grep inet6
+        # ip a
+        =>Check that the settings have been applied
+          Ipv6 address of <name> Network interface should be disappeard
+        # cat /proc/sys/net/ipv6/conf/<name>/disable_ipv6
+        =>Check if the value is "1"
+
+    2-3.Basic Firewall settings
+        # systemctl status firewalld
+        =>Check if "Active status" is "inactive (dead)"
+        # systemctl start firewalld
+        =>Execute this command If "Active status" is "inactive (dead)"
+        # firewall-cmd --list-all
+        =>Check if the content is the same as below
+          public (active)
+            target: default
+            icmp-block-inversion: no
+            interfaces: <name>
+            sources:
+            services: cockpit dhcpv6-client ssh
+            ports:
+            protocols:
+            forward: yes
+            masquerade: no
+            forward-ports:
+            source-ports:
+            icmp-blocks:
+            rich rules:
+        # systemctl enable firewalld
+        # systemctl is-enabled firewalld
+        =>Check if it is "enabled"
+
+        These tasks are for stopping and disabling firewalld.(Skip them)
+        # systemctl status firewalld
+        =>Check if "Active status" is "active (running)"
+        # systemctl --now disable firewalld
+        # systemctl status firewalld
+        =>Check that the status changed "Active: inactive (dead)"
+
+    2-4.ssh settings
+        # cp -p /etc/ssh/sshd_config /etc/ssh/sshd_config_org
+        # ls -l /etc/ssh/sshd_config*
+        # vi /etc/ssh/sshd_config
+        =>Modify conf file like below
+          #PermitRootLogin no
+          =>Modify prohibit-password to no
+        # systemctl restart sshd && sudo systemctl enable sshd
+        # systemctl status sshd
+        # systemctl is-enabled sshd
+        =>Check if there are any errors, enabled sshd and the Active status is "active (running)"
+          Do login test
+
+    2-5.NTP settings
+        # systemctl status chronyd
+        # cp -p  /etc/chrony.conf /etc/chrony.conf_org
+        # ls -l /etc/chrony.conf*
+        # vi /etc/chrony.conf
+        =>Modify conf file like below
+          pool 192.168.10.4 iburst
+        # systemctl restart chronyd && systemctl enable chronyd
+        # systemctl status chronyd
+        =>Check if there are any errors and enabled
+        # chronyc sources
+        =>Check if chrony syncs with specified IP address and the status changed "Active: active (running)"
+
+    2-6.NFS client Settings
+        See instruction for NSP client
+
+  3.Install Docker
+    # dnf erase docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+    =>If they exist already, type "y"
+    # dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    # dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    # docker info
+    =>Check If it was installed
+      Client: Docker Engine - Community
+      Version:    24.0.2
+    # systemctl enable --now docker
+    # systemctl is-enabled docker
+    =>Check if the output is "enabled"
+
+  4.Install Minikube
+    # curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+    # install minikube-linux-amd64 /usr/local/bin/minikube
+    # minikube version
+    minikube version: v1.30.1
+    commit: 08896fd1dc362c097c925146c4a0d0dac715ace0
+    # minikube start --force
+    # minikube status
+    minikube
+    type: Control Plane
+    host: Running
+    kubelet: Running
+    apiserver: Running
+    kubeconfig: Configured
+
+  5.Firewall settings for Minikube
+    # firewall-cmd --zone=public --add-port=6443/tcp --permanent
+    # firewall-cmd --reload
+    # firewall-cmd --list-all
+    =>Check if the content is the same as below (mountd, nfs3 and rpc-bind added to allowed services)
+      public (active)
+        target: default
+        icmp-block-inversion: no
+        interfaces: enp1s0
+        sources:
+        services: cockpit dhcpv6-client ssh
+        ports: 6443/tcp
+        protocols:
+        forward: yes
+        masquerade: no
+        forward-ports:
+        source-ports:
+        icmp-blocks:
+        rich rules:

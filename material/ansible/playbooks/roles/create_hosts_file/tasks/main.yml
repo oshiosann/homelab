@@ -1,0 +1,6 @@
+---
+- name: Include create_hosts_file.yml
+  ansible.builtin.include_tasks: create_hosts_file.yml
+
+- name: Include create_resolv_conf.yml
+  ansible.builtin.include_tasks: create_resolv_conf.yml

@@ -1,0 +1,102 @@
+!  The default startup configuration file for Cisco Configuration Professional (Cisco CP)
+!  DO NOT modify this file; it is required by Cisco CP as is for factory defaults
+!  Version 1.0
+!
+hostname yourname
+!
+logging buffered 51200 warnings
+!
+username cisco privilege 15 secret 0 cisco
+username cisco privilege 15 one-time secret 0 cisco
+!
+ip dhcp excluded-address 10.10.10.1
+!
+ip dhcp pool ccp-pool
+   import all
+   network 10.10.10.0 255.255.255.128
+   default-router 10.10.10.1
+   lease 0 2
+!  
+no ip domain lookup
+ip domain-name yourdomain.com
+!
+!
+interface Vlan1
+ description $ETH_LAN$
+ ip address 10.10.10.1 255.255.255.128
+ ip tcp adjust-mss 1452 
+!
+ip http server
+ip http access-class 23
+ip http secure-server
+ip http authentication local
+ip http timeout-policy idle 60 life 86400 requests 10000
+!
+access-list 23 permit 10.10.10.0 0.0.0.127
+!
+banner exec ^
+% Password expiration warning.
+-----------------------------------------------------------------------
+ 
+Cisco Configuration Professional (Cisco CP) is installed on this device
+and it provides the default username "cisco" for  one-time use. If you have 
+already used the username "cisco" to login to the router and your IOS image 
+supports the "one-time" user option, then this username has already expired. 
+You will not be able to login to the router with this username after you exit 
+this session.
+ 
+It is strongly suggested that you create a new username with a privilege level 
+of 15 using the following command.
+ 
+username <myuser> privilege 15 secret 0 <mypassword>
+ 
+Replace <myuser> and <mypassword> with the username and password you 
+want to use.
+ 
+-----------------------------------------------------------------------
+^
+banner login ^
+-----------------------------------------------------------------------
+Cisco Configuration Professional (Cisco CP) is installed on this device.
+This feature requires the one-time use of the username "cisco" with the 
+password "cisco". These default credentials have a privilege level of 15.
+ 
+YOU MUST USE CISCO CP or the CISCO IOS CLI TO CHANGE THESE
+PUBLICLY-KNOWN CREDENTIALS
+
+Here are the Cisco IOS commands.
+
+username <myuser>  privilege 15 secret 0 <mypassword>
+no username cisco
+
+Replace <myuser> and <mypassword> with the username and password you want 
+to use. 
+
+IF YOU DO NOT CHANGE THE PUBLICLY-KNOWN CREDENTIALS, YOU WILL 
+NOT BE ABLE TO LOG INTO THE DEVICE AGAIN AFTER YOU HAVE LOGGED OFF.
+ 
+For more information about Cisco CP please follow the instructions in the
+QUICK START GUIDE for your router or go to http://www.cisco.com/go/ciscocp 
+-----------------------------------------------------------------------
+^
+!
+no cdp run
+!
+!
+line con 0
+ login local
+line vty 0 4
+ access-class 23 in
+ privilege level 15
+ login local
+ transport input telnet
+ transport input telnet ssh
+line vty 5 15
+ access-class 23 in
+ privilege level 15
+ login local
+ transport input telnet
+ transport input telnet ssh
+!
+!  End of Cisco CP default config file
+end

@@ -1,0 +1,5 @@
+---
+hostname: "{{ host_parameters.ansb002v.hostname }}"
+firewall_ports:
+  - "9102/tcp"
+  - "10050/tcp"

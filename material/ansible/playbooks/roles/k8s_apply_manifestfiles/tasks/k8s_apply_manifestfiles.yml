@@ -1,0 +1,35 @@
+---
+- name: Build kubernetes environment
+  block:
+    - name: Create directory for manifest files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: ansible
+        group: ansible
+        mode: "0755"
+        recurse: true
+      with_items: "{{ k8s_manifestfiles_path }}"
+
+    - name: Put manifest files
+      ansible.builtin.template:
+        src: "{{ item.name }}.j2"
+        dest: "{{ item.dest }}/{{ item.name }}"
+        owner: ansible
+        group: ansible
+        mode: "0644"
+      with_items: "{{ k8s_manifestfiles }}"
+
+    - name: Apply manifest files
+      ansible.builtin.command: "kubectl apply -f {{ item.dest }}/{{ item.name }}"
+      with_items: "{{ k8s_manifestfiles }}"
+#      become: true
+#  rescue:
+#    - name: Rescue environment
+#      ansible.builtin.command: "kubectl delete -f {{ item.dest }}/{{ item.name }}"
+#      with_items: "{{ k8s_manifestfiles }}"
+#      become: true
+#
+#    - name: Delete manifest files
+#      ansible.builtin.file:
+#        path: "{{ ansible_home_directory }}/manifestfiles"
