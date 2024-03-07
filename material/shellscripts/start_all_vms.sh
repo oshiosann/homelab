@@ -17,4 +17,4 @@ elif [ "$answer" = "n" ]; then
 else
     echo 'Type "y" or "n" to continue.'
 fi
-exit 0 
+exit 0
