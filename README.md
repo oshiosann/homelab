@@ -1,5 +1,42 @@
-# homelabo
+# homelab
 
+## Directory discription
+
+homelab
+├─doc
+│  ├─build             # Document for buinding homelab environment
+│  │  ├─ansible       # Document for Building servers with Ansible
+│  │  └─manual        # Document for Building servers manually
+│  ├─operation         # Operational Document
+│  ├─parameter         # Parameter set
+│  └─snipets
+├─material              # Code and script to build servers and manage them
+│  ├─ansible
+│  └─shellscripts
+└─other                 # Other materials
+    ├─network_device
+    ├─pic
+    └─tools
+
+## Commit rules
+
+1.Write in English
+2.About commit message
+  <prefix>: <Reason>
+    (e.g.) feat: add something for improve something
+
+    Prefix sample
+      feat: new function
+      fix: modify bug
+      docs: modify document only
+      style: blank、format、add ";" and so on
+      refactor: refactoring
+      perf: increse performance
+      test: test
+      chore: build、support tool、library
+
+
+# sample
 
 
 ## Getting started

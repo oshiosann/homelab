@@ -360,3 +360,20 @@ Pod Template:
 $ kubectl rollout undo deployment <deployment name>  --to-revision <revision number>
 deployment.apps/<deployment name> rolled back
 =>If you use no "--to-revision" option, it goes back to previous version
+
+$ kubectl rollout pause deployment sample-deployment
+deployment.apps/sample-deployment paused
+=>If you want to prevent rollout applied immediately use it(To resume rolling update, run resume command)
+
+  [ansible@dev-mas001v kube_study]$ kubectl rollout status deployment sample-deployment
+  Waiting for deployment "sample-deployment" rollout to finish: 0 out of 3 new replicas have been updated...
+
+  ansible@dev-mas001v kube_study]$ kubectl rollout undo deployment sample-deployment
+  error: you cannot rollback a paused deployment; resume it first with 'kubectl rollout resume' and try again
+
+$ kubectl rollout resume deployment sample-deployment
+deployment.apps/sample-deployment resumed
+=>cancel it
+
+$ kubectl get replicasets --watch
+=>If it has any change of resource, display the movement
