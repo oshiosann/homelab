@@ -28,7 +28,7 @@ Check if Ansible Server is already created to run Playbook.
   $ ansible-playbook build_k8s_master_sub.yml -vvv
 
 
-5.Kubernetes Worker build
+5.Build Kubernetes Worker
   $ ansible-playbook --extra-vars "installed_host_type=worker001v" create_vm.yml -vvv
   $ ansible-playbook --extra-vars "installed_host_type=worker002v" create_vm.yml -vvv
   $ ansible-playbook build_k8s_worker.yml -vvv
@@ -60,3 +60,10 @@ Check if Ansible Server is already created to run Playbook.
 
 10.Build Test Server
   $ ansible-playbook --extra-vars "installed_host_type=test001v" create_vm.yml -vvv
+
+11.Build fluent Server
+  $ ansible-playbook --extra-vars "installed_host_type=flog001v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=flog002v" create_vm.yml -vvv
+
+12.Build local repository Server
+  $ ansible-playbook --extra-vars "installed_host_type=repo001v" create_vm.yml -vvv

@@ -234,7 +234,6 @@
     # cp -p /etc/hosts /etc/hosts_org
     # ls -l /etc/hosts*
     # vi /etc/hosts
-    =>read parameter on document "homelabo\00_parameter_doc/etc_hosts.txt" and add it
 
   7.Build Kubernetes
     Choose 7-1 for Master1 or 7-2 for Master2-3
