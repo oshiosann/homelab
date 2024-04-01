@@ -9,6 +9,10 @@
         extensions:
           - 'yml'
 
+    - name: Include role place_materials
+      ansible.builtin.include_role:
+        name: place_materials
+
     - name: Include role disable_ipv6
       ansible.builtin.include_role:
         name: disable_ipv6

@@ -1,0 +1,14 @@
+---
+- name: Remove old materials from Ansible server if already there
+  ansible.builtin.file:
+    path: "{{ ansible_home_directory }}/materials"
+    state: absent
+  failed_when: false
+
+- name: Place all packages to Ansible server
+  ansible.builtin.copy:
+    src: materials
+    dest: "{{ ansible_home_directory }}"
+    owner: ansible
+    group: ansible
+    force: true

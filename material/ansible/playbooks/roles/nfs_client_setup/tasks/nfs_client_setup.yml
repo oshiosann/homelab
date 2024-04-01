@@ -1,10 +1,40 @@
 ---
 - name: Setup nfs client
   block:
-    - name: Install nfs-utils
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/nfs-client"
+        patterns: "*.rpm"
+      register: nfs_client_rpm_files
+      delegate_to: localhost
+
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        nfs_client_rpm_package_paths: "{{ nfs_client_rpm_files.files | map(attribute='path') | list }}"
+
+    - name: Define package paths for target host
+      ansible.builtin.set_fact:
+        nfs_client_rpm_package_dest_paths: "{{ nfs_client_rpm_files.files | map(attribute='path') | map('dirname') | list }}"
+      when: "'ansible' not in group_names"
+
+    - name: Copy packages to target host
+      ansible.builtin.copy:
+        src: "{{ item.0 }}"
+        dest: "{{ item.1 }}/"
+        owner: ansible
+        group: ansible
+      with_together:
+        - "{{ nfs_client_rpm_package_paths }}"
+        - "{{ nfs_client_rpm_package_dest_paths }}"
+      when: "'ansible' not in group_names"
+
+    - name: Install packages for nfs-utils
       ansible.builtin.dnf:
-        name: nfs-utils
+        name: "{{ item }}"
         state: present
+        disable_gpg_check: true
+      with_items: "{{ nfs_client_rpm_package_paths }}"
       become: true
 
     - name: Slurp /etc/fstab
@@ -65,6 +95,12 @@
         msg: "{{ shared_dir }}"
       when: shared_dir is succeeded
   rescue:
+    - name: Uninstall packages for nfs-utils
+      ansible.builtin.dnf:
+        name: "nfs-utils"
+        state: absent
+      become: true
+
     - name: Unmount NFS share directory
       ansible.posix.mount:
         path: /mnt

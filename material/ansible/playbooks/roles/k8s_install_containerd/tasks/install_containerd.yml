@@ -1,34 +1,38 @@
 ---
 - name: Install containerd
   block:
-    - name: Uninstall docker and related packages if already installed
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/containerd"
+        patterns: "*.rpm"
+      register: containerd_rpm_files
+      delegate_to: localhost
+
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        containerd_rpm_package_paths: "{{ containerd_rpm_files.files | map(attribute='path') | list }}"
+
+    - name: Define package paths for target host
+      ansible.builtin.set_fact:
+        containerd_rpm_package_dest_paths: "{{ containerd_rpm_files.files | map(attribute='path') | map('dirname') | list }}"
+
+    - name: Copy packages to target host
+      ansible.builtin.copy:
+        src: "{{ item.0 }}"
+        dest: "{{ item.1 }}/"
+        owner: ansible
+        group: ansible
+      with_together:
+        - "{{ containerd_rpm_package_paths }}"
+        - "{{ containerd_rpm_package_dest_paths }}"
+
+    - name: Install packages for containerd
       ansible.builtin.dnf:
         name: "{{ item }}"
-        state: absent
-      with_items:
-        - docker
-        - docker-client
-        - docker-client-latest
-        - docker-common
-        - docker-latest
-        - docker-latest-logrotate
-        - docker-logrotate
-        - docker-engine
-      become: true
-
-    - name: Put repo file
-      ansible.builtin.template:
-        src: docker-ce.repo.j2
-        dest: /etc/yum.repos.d/docker-ce.repo
-        owner: root
-        group: root
-        mode: "0644"
-      become: true
-
-    - name: Install containerd
-      ansible.builtin.dnf:
-        name: containerd
         state: present
+        disable_gpg_check: true
+      with_items: "{{ containerd_rpm_package_paths }}"
       become: true
 
     - name: Create /etc/containerd directory
@@ -56,13 +60,31 @@
         enabled: true
       become: true
 
-    - name: Put material of cni plugins
+    - name: Find binary files
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/binary/cni-plugins"
+        patterns: "*.tgz"
+      register: cni_binary_files
+      delegate_to: localhost
+
+    - name: Define binary path from find results
+      ansible.builtin.set_fact:
+        cni_binary_paths: "{{ cni_binary_files.files | map(attribute='path') | list }}"
+
+    - name: Define package paths for target host
+      ansible.builtin.set_fact:
+        cni_binary_dest_paths: "{{ cni_binary_files.files | map(attribute='path') | map('dirname') | list }}"
+
+    - name: Copy packages to target host
       ansible.builtin.copy:
-        src: "{{ k8s_cni_plugins }}"
-        dest: /var/tmp
+        src: "{{ item.0 }}"
+        dest: "{{ item.1 }}/"
         owner: ansible
         group: ansible
-        mode: "0644"
+      with_together:
+        - "{{ cni_binary_paths }}"
+        - "{{ cni_binary_dest_paths }}"
 
     - name: Create /opt/cni/bin directory
       ansible.builtin.file:
@@ -75,21 +97,15 @@
 
     - name: Extract material
       ansible.builtin.unarchive:
-        src: "/var/tmp/{{ k8s_cni_plugins }}"
+        src: "{{ item }}"
         dest: /usr/local/bin
-        remote_src: true
+      with_items: "{{ cni_binary_paths }}"
       become: true
 
   rescue:
     - name: Uninstall containerd
       ansible.builtin.dnf:
         name: "containerd.io"
-        state: absent
-      become: true
-
-    - name: Remove repo file
-      ansible.builtin.file:
-        path: /etc/yum.repos.d/docker-ce.repo
         state: absent
       become: true
 
@@ -101,9 +117,6 @@
 
     - name: Delete cni materials
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /usr/local/bin
         state: absent
-      with_items:
-        - "/var/tmp/{{ k8s_cni_plugins }}"
-        - /usr/local/bin
       become: true

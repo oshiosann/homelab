@@ -1,3 +1,6 @@
 ---
 - name: Include install_ansible.yml
   ansible.builtin.include_tasks: install_ansible.yml
+
+- name: Include install_ansible_galaxy_collections.yml
+  ansible.builtin.include_tasks: install_ansible_galaxy_collections.yml

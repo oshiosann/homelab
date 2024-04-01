@@ -1,0 +1,16 @@
+# Replace old packages on Ansible server into new one (just replace)
+# Follow rules how to update package on server
+---
+- hosts: ansible
+  tasks:
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: Include role place_materials
+      ansible.builtin.include_role:
+        name: place_materials

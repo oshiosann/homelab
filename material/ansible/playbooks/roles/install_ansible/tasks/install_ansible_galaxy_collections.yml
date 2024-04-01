@@ -1,0 +1,29 @@
+---
+- name: Install ansible galaxy collections
+  block:
+    - name: Create a directory for collections
+      ansible.builtin.file:
+        path: "{{ galaxy_collections_path }}"
+        owner: ansible
+        group: ansible
+        state: directory
+        mode: '0755'
+
+    - name: Find tarball of collections
+      ansible.builtin.find:
+        paths: "{{ ansible_home_directory }}/materials/ansible-galaxy"
+        patterns: "*.tar.gz"
+      register: ansible_collection_files
+
+    - name: Define collection paths from find results
+      ansible.builtin.set_fact:
+        ansible_collection_paths: "{{ ansible_collection_files.files | map(attribute='path') | list }}"
+
+    - name: Install collections to "~/.ansible/collections/ansible_collections"
+      ansible.builtin.command: "ansible-galaxy collection install --offline --force -p {{ galaxy_collections_path }} {{ item }}"
+      with_items: "{{ ansible_collection_paths }}"
+  rescue:
+    - name: Remove collections
+      ansible.builtin.file:
+        path: "{{ galaxy_collections_path }}"
+        state: absent
