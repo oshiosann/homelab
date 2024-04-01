@@ -1,47 +1,44 @@
 ---
-- name: Install packages for serverspec
+- name: Install serverspec
   block:
-    - name: Copy ruby packages
-      ansible.builtin.copy:
-        src: "ruby"
-        dest: "/var/tmp"
-        owner: ansible
-        group: ansible
-        mode: "0755"
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/rubygems"
+        patterns: "*.rpm"
+      register: ruby_rpm_files
+
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        ruby_rpm_package_paths: "{{ ruby_rpm_files.files | map(attribute='path') | list }}"
 
     - name: Install packages for ruby
-      ansible.builtin.command: "dnf localinstall -y /var/tmp/{{ item }} --nogpgcheck"
-      with_items: "{{ ruby_packages }}"
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+        disable_gpg_check: true
+      with_items: "{{ ruby_rpm_package_paths }}"
       become: true
 
-#    - name: Get directory name
-#      ansible.builtin.command: "ls -d /usr/share/gems/gems/rubygems-update-*"
-#      changed_when: false
-#      register: rubygems_symlink_src
-#
-#    - name: Create symbolic link
-#      ansible.builtin.file:
-#        src: "{{ rubygems_symlink_src.stdout }}"
-#        dest: "/usr/share/gems/gems/{{ rubygems_symlink_src.stdout }}"
-#        owner: root
-#        group: root
-#        state: link
-#
-#    - name: Get information of symbolic link
-#      ansible.builtin.command: "ls -l /usr/share/gems/gems/{{ rubygems_symlink_src.stdout }}"
-#      changed_when: false
-#      register: check_rubygems_symlink
-#
-#    - name: Display information of symbolic link
-#      ansible.builtin.debug:
-#        msg: "{{ check_rubygems_symlink }}"
+    - name: Find gem file
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/gem/serverspec"
+        patterns: "*.gem"
+      register: serverspec_gem_files
 
-#    - name: Update gem command
-#      ansible.builtin.command: "gem update --system"
-#      become: true
+    - name: Define file paths from find results
+      ansible.builtin.set_fact:
+        serverspec_gem_file_paths: "{{ serverspec_gem_files.files | map(attribute='path') | list }}"
 
-    - name: Install serverspec
-      ansible.builtin.command: "gem install serverspec"
+    - name: Install packages for serverspec
+      community.general.gem:
+        name: serverspec
+        gem_source: "{{ item }}"
+        state: present
+        install_dir: "{{ gem_install_dir }}"
+        user_install: false
+      with_items: "{{ serverspec_gem_file_paths }}"
       become: true
 
     - name: Check installed serverspec version
@@ -53,27 +50,21 @@
       ansible.builtin.debug:
         msg: "{{ check_serverspec_version }}"
   rescue:
-    - name: Uninstall serverspec
-      ansible.builtin.command: "gem uninstall serverspec"
-      ignore_errors: true
+    - name: Uninstall packages for serverspec
+      community.general.gem:
+        name: serverspec
+        state: absent
+        install_dir: "{{ gem_install_dir }}"
+        user_install: false
+      failed_when: false
       become: true
 
-    - name: Uninstall packages
+    - name: Uninstall packages for ruby
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: absent
       with_items:
         - ruby
         - rubygems
-      ignore_errors: true
+      failed_when: false
       become: true
-
-    - name: Unstall packages for ansible-lint
-      ansible.builtin.command: "pip3 uninstall --yes ansible-lint"
-      ignore_errors: true
-      become: true
-
-    - name: Delete ruby packages
-      ansible.builtin.file:
-        path: "/var/tmp/ruby"
-        state: absent

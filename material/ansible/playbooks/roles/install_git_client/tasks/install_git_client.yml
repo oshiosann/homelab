@@ -1,10 +1,23 @@
 ---
 - name: Install git client
   block:
-    - name: Install package
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/git"
+        patterns: "*.rpm"
+      register: git_rpm_files
+
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        git_rpm_package_paths: "{{ git_rpm_files.files | map(attribute='path') | list }}"
+
+    - name: Install packages for git
       ansible.builtin.dnf:
-        name: "git"
+        name: "{{ item }}"
         state: present
+        disable_gpg_check: true
+      with_items: "{{ git_rpm_package_paths }}"
       become: true
 
     - name: Get version of git
@@ -33,7 +46,7 @@
       ansible.builtin.debug:
         msg: "{{ check_git_conf }}"
   rescue:
-    - name: Uninstall packages
+    - name: Uninstall packages for git
       ansible.builtin.dnf:
         name: "git"
         state: absent
