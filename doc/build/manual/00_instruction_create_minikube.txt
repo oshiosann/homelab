@@ -122,8 +122,8 @@ Description
     =>Check if the output is "enabled"
 
   4.Install Minikube
-    # curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-    # install minikube-linux-amd64 /usr/local/bin/minikube
+    # curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-latest.x86_64.rpm
+    # rpm -Uvh minikube-latest.x86_64.rpm
     # minikube version
     minikube version: v1.30.1
     commit: 08896fd1dc362c097c925146c4a0d0dac715ace0

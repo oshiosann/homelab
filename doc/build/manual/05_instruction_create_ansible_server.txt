@@ -143,7 +143,7 @@
         See instruction for NSP client
 
   3.Install ansible
-    # dnf install -y epel-release
+#    # dnf install -y epel-release
     # dnf install -y ansible
     # ansible --version
     =>Check if the ansible exists
@@ -162,9 +162,8 @@
     # ansible-lint --version
     =>Check if ansible-lint was installed
       ansible-lint 6.17.0 using ansible-core:2.15.0 ruamel-yaml:None ruamel-yaml-clib:None
-
-★★need to create directoy for ansible
-
+    $ mkdir /home/ansible/playbooks
+    =>Place Playbook
 
   4.Serverspec
     # dnf install -y ruby rubygems

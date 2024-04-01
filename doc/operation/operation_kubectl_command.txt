@@ -1,7 +1,7 @@
 #Tools
 #
-#kubectx
-#kubens
+#kubectl
+#kubenetess
 
 [ansible@dev-mas001v .kube]$ dnf info kube*
 Last metadata expiration check: 0:00:05 ago on Wed 20 Sep 2023 04:04:47 PM JST.
