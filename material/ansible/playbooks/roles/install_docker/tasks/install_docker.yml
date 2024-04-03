@@ -16,20 +16,39 @@
 
 - name: Install docker
   block:
-    - name: Put repo file for docker
-      ansible.builtin.template:
-        src: docker-ce.repo.j2
-        dest: /etc/yum.repos.d/docker-ce.repo
-        owner: root
-        group: root
-        mode: "0644"
-      become: true
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/docker"
+          - "{{ ansible_home_directory }}/materials/rpm/containerd"
+        patterns: "*.rpm"
+      register: docker_rpm_files
+      delegate_to: localhost
 
-    - name: Install docker packages
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        docker_rpm_package_paths: "{{ docker_rpm_files.files | map(attribute='path') | list }}"
+
+    - name: Define package paths for target host
+      ansible.builtin.set_fact:
+        docker_rpm_package_dest_paths: "{{ docker_rpm_files.files | map(attribute='path') | map('dirname') | list }}"
+
+    - name: Copy packages to target host
+      ansible.builtin.copy:
+        src: "{{ item.0 }}"
+        dest: "{{ item.1 }}/"
+        owner: ansible
+        group: ansible
+      with_together:
+        - "{{ docker_rpm_package_paths }}"
+        - "{{ docker_rpm_package_dest_paths }}"
+
+    - name: Install packages for docker and containerd
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: present
-      with_items: "{{ docker_packages }}"
+        disable_gpg_check: true
+      with_items: "{{ docker_rpm_package_paths }}"
       become: true
 
     - name: Enable docker
@@ -54,16 +73,5 @@
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: absent
-      with_items:
-        - docker-ce
-        - docker-ce-cli
-        - containerd.io
-        - docker-buildx-plugin
-        - docker-compose-plugin
-      become: true
-
-    - name: Remove repo file
-      ansible.builtin.file:
-        path: /etc/yum.repos.d/docker-ce.repo
-        state: absent
+      with_items: "{{ docker_packages }}"
       become: true

@@ -1,30 +1,42 @@
 ---
 - name: Install kubernetes packages
   block:
-    - name: Get stats of /etc/yum.repos.d/kubernetes.repo
-      ansible.builtin.stat:
-        path: /etc/yum.repos.d/kubernetes.repo
-      register: k8s_repofile_exists
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/kubernetes-cni"
+          - "{{ ansible_home_directory }}/materials/rpm/kubectl"
+          - "{{ ansible_home_directory }}/materials/rpm/kubelet"
+          - "{{ ansible_home_directory }}/materials/rpm/cri-tools"
+          - "{{ ansible_home_directory }}/materials/rpm/kubeadm"
+        patterns: "*.rpm"
+      register: k8s_rpm_files
+      delegate_to: localhost
 
-    - name: Put /etc/yum.repos.d/kubernetes.repo
-      ansible.builtin.template:
-        src: kubernetes.repo.j2
-        dest: /etc/yum.repos.d/kubernetes.repo
-        owner: root
-        group: root
-        mode: "0644"
-      become: true
-      when: not k8s_repofile_exists.stat.exists
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        k8s_rpm_package_paths: "{{ k8s_rpm_files.files | map(attribute='path') | list }}"
 
-    - name: Install kubernetes packages
+    - name: Define package paths for target host
+      ansible.builtin.set_fact:
+        k8s_rpm_package_dest_paths: "{{ k8s_rpm_files.files | map(attribute='path') | map('dirname') | list }}"
+
+    - name: Copy packages to target host
+      ansible.builtin.copy:
+        src: "{{ item.0 }}"
+        dest: "{{ item.1 }}/"
+        owner: ansible
+        group: ansible
+      with_together:
+        - "{{ k8s_rpm_package_paths }}"
+        - "{{ k8s_rpm_package_dest_paths }}"
+
+    - name: Install packages for k8s
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: present
-        disable_excludes: kubernetes
-      with_items:
-        - "kubelet-{{ kubernetes_version }}"
-        - "kubeadm-{{ kubernetes_version }}"
-        - "kubectl-{{ kubernetes_version }}"
+        disable_gpg_check: true
+      with_items: "{{ k8s_rpm_package_paths }}"
       become: true
 
     - name: Enable kubelet
@@ -33,21 +45,15 @@
         state: started
         enabled: true
       become: true
-
   rescue:
-    - name: Delete /etc/yum.repos.d/kubernetes.repo
-      ansible.builtin.file:
-        path: /etc/yum.repos.d/kubernetes.repo
-        state: absent
-      become: true
-      when: not k8s_repofile_exists.stat.exists
-
     - name: Uninstall kubernetes packages
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: absent
       with_items:
-        - kubelet
-        - kubeadm
+        - kubernetes-cni
         - kubectl
+        - kubelet
+        - cri-tools
+        - kubeadm
       become: true

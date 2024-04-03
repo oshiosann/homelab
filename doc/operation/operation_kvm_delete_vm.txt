@@ -1,0 +1,14 @@
+Check VM name you want to delete
+# virsh list --all
+
+Undefine VM managed by KVM
+#virsh undefine <VM name>
+
+Check the name of pool including the VM
+# virsh pool-list --all
+
+Check the name of image
+#virsh vol-list <pool name>
+
+Delete Image file
+# virsh vol-delete --pool <name of pool> <name of image file>

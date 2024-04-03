@@ -1,7 +1,9 @@
 Playbook command
 
-
 Check if Ansible Server is already created to run Playbook.
+
+0.Test one role
+  $  ansible-playbook test_role.yml -l dev-test001v -vvv
 
 
 1. Build Ansible server
@@ -28,7 +30,7 @@ Check if Ansible Server is already created to run Playbook.
   $ ansible-playbook build_k8s_master_sub.yml -vvv
 
 
-5.Kubernetes Worker build
+5.Build Kubernetes Worker
   $ ansible-playbook --extra-vars "installed_host_type=worker001v" create_vm.yml -vvv
   $ ansible-playbook --extra-vars "installed_host_type=worker002v" create_vm.yml -vvv
   $ ansible-playbook build_k8s_worker.yml -vvv
@@ -60,3 +62,13 @@ Check if Ansible Server is already created to run Playbook.
 
 10.Build Test Server
   $ ansible-playbook --extra-vars "installed_host_type=test001v" create_vm.yml -vvv
+
+11.Build fluent Server
+  $ ansible-playbook --extra-vars "installed_host_type=flog001v" create_vm.yml -vvv
+  $ ansible-playbook --extra-vars "installed_host_type=flog002v" create_vm.yml -vvv
+
+12.update Packages on Ansible Server(just update materials on /home/ansible/packages directory) # Follow update rules how to update package on server
+  $ ansible-playbook update_packages.yml -l dev-ansb001v -vvv
+  $ ansible-playbook update_packages.yml -l dev-ansb002v -vvv
+
+

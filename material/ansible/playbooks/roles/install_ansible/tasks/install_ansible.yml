@@ -1,18 +1,24 @@
 ---
-- name: Install packages for ansible
+- name: Install ansible
   block:
+    - name: Find rpm packages
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_home_directory }}/materials/rpm/ansible"
+          - "{{ ansible_home_directory }}/materials/rpm/python3-pip"
+        patterns: "*.rpm"
+      register: ansible_rpm_files
+
+    - name: Define package paths from find results
+      ansible.builtin.set_fact:
+        ansible_rpm_package_paths: "{{ ansible_rpm_files.files | map(attribute='path') | list }}"
+
     - name: Install packages for ansible
       ansible.builtin.dnf:
         name: "{{ item }}"
         state: present
-      with_items:
-        - epel-release
-        - ansible
-        - python3-pip
-      become: true
-
-    - name: Install packages for ansible-lint
-      ansible.builtin.command: "pip3 install ansible-lint"
+        disable_gpg_check: true
+      with_items: "{{ ansible_rpm_package_paths }}"
       become: true
 
     - name: Get installed ansible version
@@ -25,6 +31,12 @@
         msg: "{{ check_installed_ansible }}"
       when: check_installed_ansible is succeeded
 
+    - name: Install ansible-lint
+      ansible.builtin.pip:
+        name: "ansible-lint"
+        state: present
+      become: true
+
     - name: Get installed ansible-lint version
       ansible.builtin.command: "ansible-lint --version"
       changed_when: false
@@ -34,17 +46,3 @@
       ansible.builtin.debug:
         msg: "{{ check_installed_ansible_lint }}"
       when: check_installed_ansible_lint is succeeded
-  rescue:
-    - name: Uninstall packages for ansible
-      ansible.builtin.dnf:
-        name: "{{ item }}"
-        state: absent
-      with_items:
-        - epel-release
-        - ansible
-        - python3-pip
-      become: true
-
-    - name: Install packages for ansible-lint
-      ansible.builtin.command: "pip3 uninstall --yes ansible-lint"
-      become: true

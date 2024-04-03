@@ -1,4 +1,2 @@
 ---
-ruby_packages:
-  - "ruby-3.0.4-160.el9_0.x86_64.rpm"
-  - "rubygems-3.2.33-160.el9_0.noarch.rpm"
+galaxy_collections_path: "{{ ansible_home_directory }}/.ansible/collections/ansible_collections"

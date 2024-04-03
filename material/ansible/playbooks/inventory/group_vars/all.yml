@@ -31,6 +31,8 @@ ks_ansible_pw: "$6$Mhit2xbIL.KtwuFY$nmHfExTB.hiNpgu.GIjdB1f7gV0IYKBn4/Nk6vrvuQPK
 ks_root_pw: "$6$oSNUjglVTUwzI.bl$Vufe6fHfY1j8QWgI7zNZkJf2MxMbPJTwnFZmy6ELjWhbZMP35LiG0L5RmftF30b9uarSEjdwTcCXEBTUQYe.j/"
 virt_install_cmd: "virt-install --connect=qemu:///system --name {{ virt_install_param.hostname }} --hvm --virt-type kvm --accelerate --arch x86_64 --disk path={{ kvm_image_path }}/{{ virt_install_param.hostname }}.qcow2,size={{ virt_install_param.vmsize }},device=disk,bus=virtio,format=qcow2 --vcpus {{ virt_install_param.vmcpu }} --memory {{ virt_install_param.vmmemory }} --network bridge=br0,model=virtio,mac={{ virt_install_param.mac_addr }} --os-variant {{ virt_install_param.osvariant }} --location {{ isofile_path }}/{{ isofile_name }} --initrd-inject /ISO/{{ virt_install_param.hostname }}.ks --noautoconsole --extra-args \"inst.ks=file:/{{ virt_install_param.hostname }}.ks console=tty0 console=ttyS0,115200n8\""
 
+### Package vars
+gem_install_dir: "/usr/share/gems"
 
 ### docker vars
 # <docker package name>-<version>

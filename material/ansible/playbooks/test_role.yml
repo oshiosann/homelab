@@ -1,0 +1,16 @@
+# This playbook is for testing specific role
+# Before using it modify "target host"
+---
+- hosts: test
+  tasks:
+    - name: Include extra vars
+      ansible.builtin.include_vars:
+        dir: /home/ansible/playbooks/inventory/extra_vars
+        depth: 1
+        ignore_unknown_extensions: true
+        extensions:
+          - 'yml'
+
+    - name: test specific role
+      ansible.builtin.include_role:
+        name: install_docker

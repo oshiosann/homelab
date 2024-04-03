@@ -1,0 +1,3 @@
+---
+- name: Include place_materials.yml
+  ansible.builtin.include_tasks: place_materials.yml
